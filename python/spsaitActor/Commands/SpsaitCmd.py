@@ -42,16 +42,19 @@ class SpsaitCmd(object):
 
     def doExposure(self, cmd):
         expTime = cmd.cmd.keywords['exptime'].values[0]
-        cmdVar = self.actor.cmdr.call(actor='ccd_r1', cmdStr="wipe",
-                                      forUserCmd=cmd)
-        start = dt.datetime.now()
-        cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="shutters open",
-                                      forUserCmd=cmd)
-        time.sleep(expTime)
-        cmd.inform("exptime=%.2f'" % (dt.datetime.now() - start).total_seconds())
-        cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="shutters close",
-                                      forUserCmd=cmd)
-        cmdVar = self.actor.cmdr.call(actor='ccd_r1', cmdStr="read",
-                                      forUserCmd=cmd)
+        if expTime > 0:
+            cmdVar = self.actor.cmdr.call(actor='ccd_r1', cmdStr="wipe",
+                                          forUserCmd=cmd)
+            start = dt.datetime.now()
+            cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="shutters open",
+                                          forUserCmd=cmd)
+            time.sleep(expTime)
+            cmd.inform("exptime=%.2f'" % (dt.datetime.now() - start).total_seconds())
+            cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="shutters close",
+                                          forUserCmd=cmd)
+            cmdVar = self.actor.cmdr.call(actor='ccd_r1', cmdStr="read",
+                                          forUserCmd=cmd)
 
-        cmd.finish("text='Exposure done'")
+            cmd.finish("text='Exposure done'")
+        else:
+            cmd.finish("text='Wrong argument'")
