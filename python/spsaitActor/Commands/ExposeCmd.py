@@ -8,24 +8,23 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 
 
-class SpsaitCmd(object):
+class ExposeCmd(object):
     def __init__(self, actor):
         # This lets us access the rest of the actor.
         self.actor = actor
-
         # Declare the commands we implement. When the actor is started
         # these are registered with the parser, which will call the
         # associated methods when matched. The callbacks will be
         # passed a single argument, the parsed and typed command.
         #
         self.vocab = [
-            ('ping', '', self.ping),
-            ('status', '', self.status),
+            ('expose', 'ping', self.ping),
+            ('expose', 'status', self.status),
             ('expose', '<exptime>', self.doExposure)
         ]
 
         # Define typed command arguments for the above commands.
-        self.keys = keys.KeysDictionary("spsait_spsait", (1, 1),
+        self.keys = keys.KeysDictionary("spsait_expose", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         )
 
