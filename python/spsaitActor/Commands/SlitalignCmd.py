@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
 
+import time
+
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from wrap import threaded
@@ -25,13 +27,14 @@ class SlitalignCmd(object):
                                         )
 
     @threaded
-    def loop(self, cmd, firstCall=True):
-        self.actor.sequenceOnGoing = True if firstCall else self.actor.sequenceOnGoing
+    def loop(self, cmd):
+        self.actor.sequenceOnGoing = True
         expTime = cmd.cmd.keywords['exptime'].values[0]
         if expTime > 0:
-            cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="exposure remove exptime=%.2f"%expTime, forUserCmd=cmd)
-            if self.actor.sequenceOnGoing:
-                return self.loop(cmd, firstCall=False)
+            while self.actor.sequenceOnGoing:
+                cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="exposure remote exptime=%.2f" % expTime,
+                                              forUserCmd=cmd)
+                time.sleep(0.5)
             else:
                 cmd.finish("text='Exposure Loop is over'")
         else:
