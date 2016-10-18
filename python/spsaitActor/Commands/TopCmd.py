@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 
+
 import opscore.protocols.keys as keys
+import opscore.protocols.types as types
 
 
 class TopCmd(object):
@@ -17,11 +19,13 @@ class TopCmd(object):
         self.vocab = [
             ('ping', '', self.ping),
             ('status', '', self.status),
+            ('adjust', 'slitalign <exptime>', self.adjust),
             ('stop', '', self.stop),
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_spsait", (1, 1),
+                                        keys.Key("exptime", types.Float(), help="The exposure time"),
                                         )
 
     def ping(self, cmd):
@@ -36,5 +40,13 @@ class TopCmd(object):
         cmd.finish()
 
     def stop(self, cmd):
-        self.actor.sequenceOnGoing = False
+        self.actor.stopSequence = True
         cmd.finish("text='Stopping current sequence'")
+
+    def adjust(self, cmd):
+        expTime = cmd.cmd.keywords['exptime'].values[0]
+        if expTime > 0:
+            self.actor.expTime = expTime
+            cmd.finish("text='Adjusting exptime to %.2f'" % expTime)
+        else:
+            cmd.fail("text='expTime must be positive'")

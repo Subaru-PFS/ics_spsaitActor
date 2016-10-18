@@ -29,7 +29,7 @@ class SpsaitActor(Actor):
         self.monitors = dict()
 
         self.statusLoopCB = self.statusLoop
-        self.sequenceOnGoing = False
+        self.stopSequence = False
         self.myThread = QThread(self, "myThread")
         self.myThread.start()
 
