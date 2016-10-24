@@ -19,7 +19,7 @@ class SpsaitActor(Actor):
                        name,
                        productName=productName,
                        configFile=configFile,
-                       modelNames=['sac', 'enu', 'testa'],
+                       modelNames=['sac', 'enu', 'afl'],
                        )
 
         self.logger.setLevel(logLevel)

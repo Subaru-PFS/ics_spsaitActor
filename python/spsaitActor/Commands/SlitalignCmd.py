@@ -40,7 +40,7 @@ class SlitalignCmd(object):
             self.actor.stopSequence = False
             self.actor.expTime = expTime
             while not self.actor.stopSequence:
-                cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="exposure remote exptime=%.2f" % self.actor.expTime,
+                cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="expose remote exptime=%.2f" % self.actor.expTime,
                                               forUserCmd=cmd)
                 # cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="status", forUserCmd=cmd)
 
@@ -63,24 +63,43 @@ class SlitalignCmd(object):
             i = 1
             self.actor.stopSequence = False
             self.actor.expTime = expTime
-            self.actor.cmdr.call(actor='enu',
-                                 cmdStr="slit move absolute X=%.4f Y=0.0 Z=0.0 U=0.0 V=0.0 W=0.0" % slitLowBound,
+
+            self.actor.cmdr.call(actor='afl',
+                                 cmdStr="switch off",
                                  forUserCmd=cmd)
-            time.sleep(0.3)
+            self.actor.cmdr.call(actor='enu',
+                                 cmdStr="slit move absolute X=%.5f Y=0.0 Z=0.0 U=0.0 V=0.0 W=0.0" % slitLowBound,
+                                 forUserCmd=cmd)
+            time.sleep(5.)
+
+            for j in range(3):
+                cmdVar = self.actor.cmdr.call(actor='sac',
+                                              cmdStr="background fname=%s_background%s.fits exptime=%.2f" % (
+                                                  prefix, str(j + 1).zfill(2), expTime),
+                                              forUserCmd=cmd)
+                time.sleep(0.1)
+
+            self.actor.cmdr.call(actor='afl',
+                                 cmdStr="switch on",
+                                 forUserCmd=cmd)
+            time.sleep(5.)
+
             cmdVar = self.actor.cmdr.call(actor='sac',
-                                          cmdStr="exposure fname=%s exptime=%.2f" % (self.getFilename(prefix), expTime),
+                                          cmdStr="expose fname=%s exptime=%.2f" % (self.getFilename(prefix), expTime),
                                           forUserCmd=cmd)
             step = (slitHighBound - slitLowBound) / (nbImage - 1)
             while not self.actor.stopSequence and i < nbImage:
 
-                cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="slit move relative X=%.4f" % step,
-                                              forUserCmd=cmd)
+                cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="slit move relative X=%.5f" % step,
+                                              forUserCmd=cmd) if i < nbImage - 1 else self.actor.cmdr.call(actor='enu',
+                                                                                                           cmdStr="slit move absolute X=%.5f Y=0.0 Z=0.0 U=0.0 V=0.0 W=0.0" % slitHighBound,
+                                                                                                           forUserCmd=cmd)
                 time.sleep(0.3)
-                cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="exposure fname=%s exptime=%.2f" % (
+                cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="expose fname=%s exptime=%.2f" % (
                     self.getFilename(prefix), expTime), forUserCmd=cmd)
                 i += 1
             else:
-                cmd.finish("text='Exposure Loop is over'")
+                cmd.finish("text='Through focus is over'")
         else:
             cmd.fail("text='exptime must be positive'")
 
