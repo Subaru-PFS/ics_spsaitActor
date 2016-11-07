@@ -19,7 +19,7 @@ class SpsaitActor(Actor):
                        name,
                        productName=productName,
                        configFile=configFile,
-                       modelNames=['sac', 'enu', 'afl'],
+                       modelNames=['sac', 'enu', 'afl', 'breva'],
                        )
 
         self.logger.setLevel(logLevel)
@@ -30,6 +30,7 @@ class SpsaitActor(Actor):
 
         self.statusLoopCB = self.statusLoop
         self.stopSequence = False
+        self.expTime = 1.0
         self.myThread = QThread(self, "myThread")
         self.myThread.start()
 
