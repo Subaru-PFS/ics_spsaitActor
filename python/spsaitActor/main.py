@@ -5,10 +5,9 @@ import argparse
 import logging
 
 from actorcore.Actor import Actor
+from actorcore.QThread import QThread
 from opscore.utility.qstr import qstr
 from twisted.internet import reactor
-
-from actorcore.QThread import QThread
 
 
 class SpsaitActor(Actor):
@@ -19,7 +18,7 @@ class SpsaitActor(Actor):
                        name,
                        productName=productName,
                        configFile=configFile,
-                       modelNames=['sac', 'enu', 'afl', 'breva'],
+                       modelNames=['ccd', 'enu'],
                        )
 
         self.logger.setLevel(logLevel)
@@ -30,9 +29,11 @@ class SpsaitActor(Actor):
 
         self.statusLoopCB = self.statusLoop
         self.stopSequence = False
+        self.stopExposure = False
         self.expTime = 1.0
         self.myThread = QThread(self, "myThread")
         self.myThread.start()
+        self.myThread.handleTimeout = self.sleep
 
     def reloadConfiguration(self, cmd):
         logging.info("reading config file %s", self.configFile)
@@ -73,6 +74,9 @@ class SpsaitActor(Actor):
             self.statusLoopCB(controller)
         else:
             cmd.warn('text="adjusted %s loop to %gs"' % (controller, self.monitors[controller]))
+
+    def sleep(self):
+        pass
 
 
 def main():

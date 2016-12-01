@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 
-import datetime as dt
 import time
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+from wrap import threaded
 
 
 class ExposeCmd(object):
@@ -20,13 +20,18 @@ class ExposeCmd(object):
         self.vocab = [
             ('expose', 'ping', self.ping),
             ('expose', 'status', self.status),
-            ('expose', '<exptime>', self.doExposure)
+            ('expose', '@(<exptime>) @(bias|dark|flat|arc|object) [<comment>]', self.doExposure)
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_expose", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
+                                        keys.Key("comment", types.String(), help="user comment"),
                                         )
+
+    @property
+    def stopExposure(self):
+        return self.actor.stopExposure
 
     def ping(self, cmd):
         """Query the actor for liveness/happiness."""
@@ -39,21 +44,44 @@ class ExposeCmd(object):
         cmd.inform('text="Present!"')
         cmd.finish()
 
+    @threaded
     def doExposure(self, cmd):
-        expTime = cmd.cmd.keywords['exptime'].values[0]
-        if expTime > 0:
-            cmdVar = self.actor.cmdr.call(actor='ccd_r1', cmdStr="wipe",
-                                          forUserCmd=cmd)
-            start = dt.datetime.now()
-            cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="shutters open",
-                                          forUserCmd=cmd)
-            time.sleep(expTime)
-            cmd.inform("exptime=%.2f'" % (dt.datetime.now() - start).total_seconds())
-            cmdVar = self.actor.cmdr.call(actor='enu', cmdStr="shutters close",
-                                          forUserCmd=cmd)
-            cmdVar = self.actor.cmdr.call(actor='ccd_r1', cmdStr="read",
-                                          forUserCmd=cmd)
+        f = 0.1
+        i = 0
+        cmdKeys = cmd.cmd.keywords
 
-            cmd.finish("text='Exposure done'")
-        else:
-            cmd.finish("text='Wrong argument'")
+        expTime = cmdKeys['exptime'].values[0]
+        comment = cmdKeys['comment'].values[0] if "comment" in cmdKeys else ""
+
+        knownTypes = ["bias", "dark", "flat", "arc", "object"]
+        for knownType in knownTypes:
+            if knownType in cmdKeys:
+                expType = knownType
+                break
+
+        if expType in ["flat, arc", "object", "dark"] and expTime <= 0:
+            cmd.fail("text='expTime must be positive'")
+            return
+
+        self.actor.cmdr.call(actor='ccd_r1', cmdStr="wipe", forUserCmd=cmd)
+        # cmd.inform("text='%s %s'" % ('ccd_r1', "wipe"))
+        if expType in ["flat, arc", "object"]:
+
+            self.actor.cmdr.call(actor='enu', cmdStr="shutters open", forUserCmd=cmd)
+            # cmd.inform("text='%s %s'" % ('enu', "shutters open"))
+            while (i < expTime // f) and not self.stopExposure:
+                time.sleep(f)
+                i += 1
+            time.sleep(expTime % f)
+
+            self.actor.cmdr.call(actor='enu', cmdStr="shutters close", forUserCmd=cmd)
+            # cmd.inform("text='%s %s'" % ('enu', "shutters close"))
+        elif expType == "dark":
+            while (i < expTime // f) and not self.stopExposure:
+                time.sleep(f)
+                i += 1
+            time.sleep(expTime % f)
+
+        self.actor.cmdr.call(actor='ccd_r1', cmdStr="read %s comment=%s" % (expType, comment), forUserCmd=cmd)
+        # cmd.inform("text='%s %s'" % ('ccd_r1', 'read %s' % expType))
+        cmd.finish("text='exposure done expTime=%.1f'" % (i * f + expTime % f))
