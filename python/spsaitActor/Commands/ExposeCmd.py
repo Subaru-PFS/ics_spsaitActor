@@ -20,7 +20,8 @@ class ExposeCmd(object):
         self.vocab = [
             ('expose', 'ping', self.ping),
             ('expose', 'status', self.status),
-            ('expose', '@(<exptime>) @(bias|dark|flat|arc|object) [<comment>]', self.doExposure)
+            ('expose', '@(<exptime>) @(bias|dark|flat|arc|object) [<comment>]', self.doExposure),
+            ('expose', '@(test) <exptime>', self.test),
         ]
 
         # Define typed command arguments for the above commands.
@@ -51,8 +52,8 @@ class ExposeCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         expTime = cmdKeys['exptime'].values[0]
-        comment = cmdKeys['comment'].values[0] if "comment" in cmdKeys else ""
-
+        comment = "comment='%s'" % cmdKeys['comment'].values[0] if "comment" in cmdKeys else ""
+        print comment
         knownTypes = ["bias", "dark", "flat", "arc", "object"]
         for knownType in knownTypes:
             if knownType in cmdKeys:
@@ -66,7 +67,7 @@ class ExposeCmd(object):
         self.actor.cmdr.call(actor='ccd_r1', cmdStr="wipe", forUserCmd=cmd)
         # cmd.inform("text='%s %s'" % ('ccd_r1', "wipe"))
         if expType in ["flat, arc", "object"]:
-
+            cmd.inform("integratingTime=%.2f" % expTime)
             self.actor.cmdr.call(actor='enu', cmdStr="shutters open", forUserCmd=cmd)
             # cmd.inform("text='%s %s'" % ('enu', "shutters open"))
             while (i < expTime // f) and not self.stopExposure:
@@ -82,6 +83,13 @@ class ExposeCmd(object):
                 i += 1
             time.sleep(expTime % f)
 
-        self.actor.cmdr.call(actor='ccd_r1', cmdStr="read %s comment=%s" % (expType, comment), forUserCmd=cmd)
+        # self.actor.cmdr.call(actor='ccd_r1', cmdStr="read %s %s" % (expType, comment), forUserCmd=cmd)
+        self.actor.cmdr.call(actor='ccd_r1', cmdStr="read %s" % expType, forUserCmd=cmd)
         # cmd.inform("text='%s %s'" % ('ccd_r1', 'read %s' % expType))
-        cmd.finish("text='exposure done expTime=%.1f'" % (i * f + expTime % f))
+        cmd.finish("text='exposure done expTime=%.2f'" % (i * f + expTime % f))
+
+    def test(self, cmd):
+        cmdKeys = cmd.cmd.keywords
+        expTime = cmdKeys['exptime'].values[0]
+        cmd.inform("integratingTime=%.2f" % expTime)
+        cmd.finish()
