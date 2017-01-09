@@ -31,9 +31,11 @@ class SpsaitActor(Actor):
         self.stopSequence = False
         self.stopExposure = False
         self.expTime = 1.0
-        self.myThread = QThread(self, "myThread")
-        self.myThread.start()
-        self.myThread.handleTimeout = self.sleep
+
+        self.myThread = {"expose": QThread(self, "expose"), "detalign": QThread(self, "detalign")}
+        for thread in self.myThread.itervalues():
+            thread.start()
+            thread.handleTimeout = self.sleep
 
     def reloadConfiguration(self, cmd):
         logging.info("reading config file %s", self.configFile)

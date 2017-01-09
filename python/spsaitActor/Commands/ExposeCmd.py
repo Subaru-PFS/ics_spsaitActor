@@ -17,6 +17,7 @@ class ExposeCmd(object):
         # associated methods when matched. The callbacks will be
         # passed a single argument, the parsed and typed command.
         #
+        self.name = "expose"
         self.vocab = [
             ('expose', 'ping', self.ping),
             ('expose', 'status', self.status),
@@ -29,6 +30,8 @@ class ExposeCmd(object):
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("comment", types.String(), help="user comment"),
                                         )
+
+
 
     @property
     def stopExposure(self):
