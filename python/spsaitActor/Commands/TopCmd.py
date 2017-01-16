@@ -42,12 +42,12 @@ class TopCmd(object):
 
     def stop(self, cmd):
         self.actor.stopSequence = True
-
-        cmd.finish("text='Stopping current sequence'")
+        cmd.inform("text='Stopping current sequence'")
+        self.abort(cmd)
 
     def abort(self, cmd):
         self.actor.stopExposure = True
-
+        self.actor.cmdr.call(actor='enu', cmdStr="shutters abort", forUserCmd=cmd)
         cmd.finish("text='Stopping current exposure'")
 
     def adjust(self, cmd):
@@ -57,4 +57,3 @@ class TopCmd(object):
             cmd.finish("text='Adjusting exptime to %.2f'" % expTime)
         else:
             cmd.fail("text='expTime must be positive'")
-

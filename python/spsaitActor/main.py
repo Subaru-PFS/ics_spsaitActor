@@ -18,7 +18,7 @@ class SpsaitActor(Actor):
                        name,
                        productName=productName,
                        configFile=configFile,
-                       modelNames=['ccd', 'enu'],
+                       modelNames=['ccd_r1', 'enu'],
                        )
 
         self.logger.setLevel(logLevel)

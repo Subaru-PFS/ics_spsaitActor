@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 
-import time
-
+import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from wrap import threaded
@@ -21,8 +20,8 @@ class ExposeCmd(object):
         self.vocab = [
             ('expose', 'ping', self.ping),
             ('expose', 'status', self.status),
-            ('expose', '@(<exptime>) @(bias|dark|flat|arc|object) [<comment>]', self.doExposure),
-            ('expose', '@(test) <exptime>', self.test),
+            ('expose', '@(flat|arc|object) @(<exptime>) [<comment>]', self.doExposure),
+
         ]
 
         # Define typed command arguments for the above commands.
@@ -30,8 +29,6 @@ class ExposeCmd(object):
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("comment", types.String(), help="user comment"),
                                         )
-
-
 
     @property
     def stopExposure(self):
@@ -50,49 +47,51 @@ class ExposeCmd(object):
 
     @threaded
     def doExposure(self, cmd):
-        f = 0.1
-        i = 0
+
+        self.actor.stopExposure = False
+
         cmdKeys = cmd.cmd.keywords
+        cmdCall = self.actor.cmdr.call
+        enuKeys = self.actor.models['enu']
+        ccdKeys = self.actor.models['ccd_r1']
 
         expTime = cmdKeys['exptime'].values[0]
         comment = "comment='%s'" % cmdKeys['comment'].values[0] if "comment" in cmdKeys else ""
-        print comment
-        knownTypes = ["bias", "dark", "flat", "arc", "object"]
+
+        knownTypes = ["flat", "arc", "object"]
         for knownType in knownTypes:
             if knownType in cmdKeys:
                 expType = knownType
                 break
 
-        if expType in ["flat, arc", "object", "dark"] and expTime <= 0:
+        if expTime <= 0:
             cmd.fail("text='expTime must be positive'")
             return
 
-        self.actor.cmdr.call(actor='ccd_r1', cmdStr="wipe", forUserCmd=cmd)
-        # cmd.inform("text='%s %s'" % ('ccd_r1', "wipe"))
-        if expType in ["flat, arc", "object"]:
-            cmd.inform("integratingTime=%.2f" % expTime)
-            self.actor.cmdr.call(actor='enu', cmdStr="shutters open", forUserCmd=cmd)
-            # cmd.inform("text='%s %s'" % ('enu', "shutters open"))
-            while (i < expTime // f) and not self.stopExposure:
-                time.sleep(f)
-                i += 1
-            time.sleep(expTime % f)
+        [state, mode, position] = enuKeys.keyVarDict['shutters'].getValue()
+        if not (state == "IDLE" and position == "close") or self.stopExposure:
+            raise Exception("aborting exposure")
 
-            self.actor.cmdr.call(actor='enu', cmdStr="shutters close", forUserCmd=cmd)
-            # cmd.inform("text='%s %s'" % ('enu', "shutters close"))
-        elif expType == "dark":
-            while (i < expTime // f) and not self.stopExposure:
-                time.sleep(f)
-                i += 1
-            time.sleep(expTime % f)
+        cmdCall(actor='ccd_r1', cmdStr="wipe", forUserCmd=cmd)
+        try:
 
-        # self.actor.cmdr.call(actor='ccd_r1', cmdStr="read %s %s" % (expType, comment), forUserCmd=cmd)
-        self.actor.cmdr.call(actor='ccd_r1', cmdStr="read %s" % expType, forUserCmd=cmd)
-        # cmd.inform("text='%s %s'" % ('ccd_r1', 'read %s' % expType))
-        cmd.finish("text='exposure done expTime=%.2f'" % (i * f + expTime % f))
+            state = ccdKeys.keyVarDict['exposureState'].getValue()
+            if state != "integrating" or self.stopExposure:
+                raise Exception("aborting exposure")
 
-    def test(self, cmd):
-        cmdKeys = cmd.cmd.keywords
-        expTime = cmdKeys['exptime'].values[0]
-        cmd.inform("integratingTime=%.2f" % expTime)
-        cmd.finish()
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % expTime, forUserCmd=cmd)
+            dateobs = enuKeys.keyVarDict['dateobs'].getValue()
+            exptime = enuKeys.keyVarDict['exptime'].getValue()
+
+            if np.isnan(exptime):
+                raise Exception("aborting exposure")
+
+            cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
+                    forUserCmd=cmd)
+
+            cmd.finish("text='exposure done exptime=%.2f'" % exptime)
+
+        except Exception as e:
+
+            cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
+            raise

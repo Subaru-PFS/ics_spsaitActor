@@ -69,7 +69,7 @@ class SlitalignCmd(object):
         enuKeys = self.actor.models['enu'].keyVarDict
         nbBackground = 3
         if expTime > 0 and nbImage > 1:
-            i = 1
+            #i = 1
             self.actor.stopSequence = False
             self.actor.expTime = expTime
 
