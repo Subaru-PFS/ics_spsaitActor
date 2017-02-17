@@ -21,7 +21,6 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign', 'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>]', self.throughFocus),
-            ('detalign', 'test <exptime>', self.test),
         ]
 
         # Define typed command arguments for the above commands.
@@ -42,27 +41,26 @@ class DetalignCmd(object):
         lowBound = cmdkeys['lowBound'].values[0]
         highBound = cmdkeys['highBound'].values[0]
         motor = cmdkeys['motor'].values[0] if "motor" in cmdkeys else "piston"
+        ti = 0.5
 
         if expTimes[0] > 0 and nbImage > 1:
-
             self.actor.stopSequence = False
-            
+
             sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, highBound, motor)
             for actor, cmdStr, tempo in sequence:
                 if self.actor.stopSequence:
                     break
                 self.actor.cmdr.call(actor=actor, cmdStr=cmdStr, forUserCmd=cmd)
-                for i in range(int(tempo // 0.5)):
+                for i in range(int(tempo // ti)):
                     if self.actor.stopSequence:
                         break
-                    time.sleep(0.5)
-                time.sleep(tempo % 0.5)
+                    time.sleep(ti)
+                time.sleep(tempo % ti)
             cmd.finish("text='Through focus is over'")
         else:
             cmd.fail("text='exptime must be positive'")
 
     def buildThroughFocus(self, nbImage, expTimes, lowBound, highBound, motor):
-
 
         offset = 12
         linear = np.ones(nbImage - 1) * (highBound - lowBound) / (nbImage - 1)
@@ -86,9 +84,3 @@ class DetalignCmd(object):
         sequence += seq_expTime
 
         return sequence
-
-    def test(self, cmd):
-        cmdkeys = cmd.cmd.keywords
-        expTime = cmdkeys['exptime'].values
-        print "expTime:", expTime
-        cmd.finish("text='test is over'")

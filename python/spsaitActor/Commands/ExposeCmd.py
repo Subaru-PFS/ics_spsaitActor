@@ -5,7 +5,8 @@ import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from wrap import threaded
-
+import sys
+import traceback as tb
 
 class ExposeCmd(object):
     def __init__(self, actor):
@@ -57,7 +58,7 @@ class ExposeCmd(object):
 
         expTime = cmdKeys['exptime'].values[0]
         comment = "comment='%s'" % cmdKeys['comment'].values[0] if "comment" in cmdKeys else ""
-
+      
         knownTypes = ["flat", "arc", "object"]
         for knownType in knownTypes:
             if knownType in cmdKeys:
@@ -72,7 +73,7 @@ class ExposeCmd(object):
         if not (state == "IDLE" and position == "close") or self.stopExposure:
             raise Exception("aborting exposure")
 
-        cmdCall(actor='ccd_r1', cmdStr="wipe", forUserCmd=cmd)
+        cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=20, forUserCmd=cmd)
         try:
 
             state = ccdKeys.keyVarDict['exposureState'].getValue()
@@ -86,8 +87,8 @@ class ExposeCmd(object):
             if np.isnan(exptime):
                 raise Exception("aborting exposure")
 
-            cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
-                    forUserCmd=cmd)
+            cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s %s" % (expType, exptime, dateobs, comment),
+                    timeLim=120, forUserCmd=cmd)
 
             cmd.finish("text='exposure done exptime=%.2f'" % exptime)
 
