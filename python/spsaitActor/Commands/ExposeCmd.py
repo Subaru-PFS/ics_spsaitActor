@@ -5,8 +5,7 @@ import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from wrap import threaded
-import sys
-import traceback as tb
+
 
 class ExposeCmd(object):
     def __init__(self, actor):
@@ -21,7 +20,8 @@ class ExposeCmd(object):
         self.vocab = [
             ('expose', 'ping', self.ping),
             ('expose', 'status', self.status),
-            ('expose', '@(flat|arc|object) @(<exptime>) [<comment>]', self.doExposure),
+            ('expose', '@(object) @(<exptime>) [<comment>]', self.doExposure),
+            ('expose', '@(flat) @(<exptime>) [switchOff]', self.doFlat),
 
         ]
 
@@ -58,12 +58,13 @@ class ExposeCmd(object):
 
         expTime = cmdKeys['exptime'].values[0]
         comment = "comment='%s'" % cmdKeys['comment'].values[0] if "comment" in cmdKeys else ""
-      
-        knownTypes = ["flat", "arc", "object"]
-        for knownType in knownTypes:
-            if knownType in cmdKeys:
-                expType = knownType
-                break
+        #
+        # knownTypes = ["flat", "arc", "object"]
+        # for knownType in knownTypes:
+        #     if knownType in cmdKeys:
+        #         expType = knownType
+        #         break
+        expType = "object"
 
         if expTime <= 0:
             cmd.fail("text='expTime must be positive'")
@@ -91,6 +92,58 @@ class ExposeCmd(object):
                     timeLim=120, forUserCmd=cmd)
 
             cmd.finish("text='exposure done exptime=%.2f'" % exptime)
+
+        except Exception as e:
+
+            cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
+            raise
+
+    @threaded
+    def doFlat(self, cmd):
+
+        self.actor.stopExposure = False
+
+        cmdKeys = cmd.cmd.keywords
+        cmdCall = self.actor.cmdr.call
+        enuKeys = self.actor.models['enu']
+        ccdKeys = self.actor.models['ccd_r1']
+
+        expTime = cmdKeys['exptime'].values[0]
+        switchOff = True if "switchOff" in cmdKeys else False
+
+        expType = "flat"
+
+        if expTime <= 0:
+            cmd.fail("text='expTime must be positive'")
+            return
+
+        [state, mode, position] = enuKeys.keyVarDict['shutters'].getValue()
+        if not (state == "IDLE" and position == "close") or self.stopExposure:
+            raise Exception("aborting exposure")
+
+        cmdCall(actor='dcb', cmdStr="switch arc=halogen attenuator=255", timeLim=300, forUserCmd=cmd)
+
+        cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=20, forUserCmd=cmd)
+        try:
+
+            state = ccdKeys.keyVarDict['exposureState'].getValue()
+            if state != "integrating" or self.stopExposure:
+                raise Exception("aborting exposure")
+
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % expTime, forUserCmd=cmd)
+            dateobs = enuKeys.keyVarDict['dateobs'].getValue()
+            exptime = enuKeys.keyVarDict['exptime'].getValue()
+
+            if np.isnan(exptime):
+                raise Exception("aborting exposure")
+
+            cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs), timeLim=120,
+                    forUserCmd=cmd)
+
+            if switchOff:
+                cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=30, forUserCmd=cmd)
+
+            cmd.finish("text='flat done exptime=%.2f'" % exptime)
 
         except Exception as e:
 

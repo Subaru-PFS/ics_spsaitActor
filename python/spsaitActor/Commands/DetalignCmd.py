@@ -73,6 +73,7 @@ class DetalignCmd(object):
 
         seq_expTime = [('spsait', "expose object exptime=%.2f " % expTime, 0) for expTime in expTimes]
 
+        # Number of microns must be an integer
         sequence = [('xcu_r1', " motors moveCcd %s=%i microns abs" % (motor, lowBound), 5)]
         sequence += seq_expTime
 
