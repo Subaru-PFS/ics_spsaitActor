@@ -21,7 +21,7 @@ class ExposeCmd(object):
             ('expose', 'ping', self.ping),
             ('expose', 'status', self.status),
             ('expose', '@(object) @(<exptime>) [<comment>]', self.doExposure),
-            ('expose', '@(flat) @(<exptime>) [switchOff]', self.doFlat),
+            ('expose', '@(flat) @(<exptime>) [@(switchOff)]', self.doFlat),
 
         ]
 
