@@ -20,7 +20,9 @@ class DetalignCmd(object):
         #
         self.name = "detalign"
         self.vocab = [
-            ('detalign', 'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>]', self.throughFocus),
+            ('detalign',
+             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [@(switchOff)]',
+             self.throughFocus),
         ]
 
         # Define typed command arguments for the above commands.
@@ -34,28 +36,50 @@ class DetalignCmd(object):
 
     @threaded
     def throughFocus(self, cmd):
-        cmdkeys = cmd.cmd.keywords
+        cmdKeys = cmd.cmd.keywords
+        cmdCall = self.actor.cmdr.call
 
-        nbImage = cmdkeys['nb'].values[0]
-        expTimes = cmdkeys['exptime'].values
-        lowBound = cmdkeys['lowBound'].values[0]
-        highBound = cmdkeys['highBound'].values[0]
-        motor = cmdkeys['motor'].values[0] if "motor" in cmdkeys else "piston"
+        nbImage = cmdKeys['nb'].values[0]
+        expTimes = cmdKeys['exptime'].values
+        lowBound = cmdKeys['lowBound'].values[0]
+        highBound = cmdKeys['highBound'].values[0]
+        motor = cmdKeys['motor'].values[0] if "motor" in cmdKeys else "piston"
+
+        switchOff = True if "switchOff" in cmdKeys else False
+
+        self.actor.stopSequence = False
+
+        if "ne" in cmdKeys:
+            arcLamp = "ne"
+        elif "hgar" in cmdKeys:
+            arcLamp = "hgar"
+        elif "xenon" in cmdKeys:
+            arcLamp = "xenon"
+        else:
+            arcLamp = None
+
+        if arcLamp is not None:
+            cmdCall(actor='dcb', cmdStr="switch arc=%s attenuator=255" % arcLamp, timeLim=300, forUserCmd=cmd)
+
         ti = 0.5
 
         if expTimes[0] > 0 and nbImage > 1:
-            self.actor.stopSequence = False
 
             sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, highBound, motor)
             for actor, cmdStr, tempo in sequence:
                 if self.actor.stopSequence:
                     break
-                self.actor.cmdr.call(actor=actor, cmdStr=cmdStr, forUserCmd=cmd)
+                cmdCall(actor=actor, cmdStr=cmdStr, forUserCmd=cmd)
                 for i in range(int(tempo // ti)):
                     if self.actor.stopSequence:
                         break
                     time.sleep(ti)
                 time.sleep(tempo % ti)
+
+            if arcLamp is not None:
+                if switchOff:
+                    cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=30, forUserCmd=cmd)
+
             cmd.finish("text='Through focus is over'")
         else:
             cmd.fail("text='exptime must be positive'")
@@ -71,7 +95,7 @@ class DetalignCmd(object):
         coeff = 1
         step = coeff * linear
 
-        seq_expTime = [('spsait', "expose object exptime=%.2f " % expTime, 0) for expTime in expTimes]
+        seq_expTime = [('spsait', "expose arc exptime=%.2f " % expTime, 0) for expTime in expTimes]
 
         # Number of microns must be an integer
         sequence = [('xcu_r1', " motors moveCcd %s=%i microns abs" % (motor, lowBound), 5)]
