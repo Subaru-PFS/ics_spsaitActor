@@ -21,17 +21,19 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign',
-             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [@(switchOff)]',
+             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [@(switchOff)] [<startPosition>]',
              self.throughFocus),
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_detalign", (1, 1),
                                         keys.Key("exptime", types.Float() * (1,), help="The exposure time(s)"),
-                                        keys.Key("nb", types.Int(), help="Number of exposure"),
+                                        keys.Key("nb", types.Int(), help="Number of position"),
                                         keys.Key("lowBound", types.Float(), help="lower bound for through focus"),
                                         keys.Key("highBound", types.Float(), help="higher bound for through focus"),
                                         keys.Key("motor", types.String(), help="optional to move a single motor"),
+                                        keys.Key("startPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
+                                         The 3 motors positions are required. If it is not set the lowBound position is used. ")
                                         )
 
     @threaded
@@ -44,6 +46,7 @@ class DetalignCmd(object):
         lowBound = cmdKeys['lowBound'].values[0]
         highBound = cmdKeys['highBound'].values[0]
         motor = cmdKeys['motor'].values[0] if "motor" in cmdKeys else "piston"
+        startPosition = cmdKeys['startPosition'].values if "startPosition" in cmdKeys else None
 
         switchOff = True if "switchOff" in cmdKeys else False
 
@@ -65,7 +68,7 @@ class DetalignCmd(object):
 
         if expTimes[0] > 0 and nbImage > 1:
 
-            sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, highBound, motor)
+            sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, highBound, motor, startPosition)
             for actor, cmdStr, tempo in sequence:
                 if self.actor.stopSequence:
                     break
@@ -84,7 +87,7 @@ class DetalignCmd(object):
         else:
             cmd.fail("text='exptime must be positive'")
 
-    def buildThroughFocus(self, nbImage, expTimes, lowBound, highBound, motor):
+    def buildThroughFocus(self, nbImage, expTimes, lowBound, highBound, motor, startPosition):
 
         offset = 12
         linear = np.ones(nbImage - 1) * (highBound - lowBound) / (nbImage - 1)
@@ -98,14 +101,16 @@ class DetalignCmd(object):
         seq_expTime = [('spsait', "expose arc exptime=%.2f " % expTime, 0) for expTime in expTimes]
 
         # Number of microns must be an integer
-        sequence = [('xcu_r1', " motors moveCcd %s=%i microns abs" % (motor, lowBound), 5)]
+        if startPosition is None:
+            sequence = [('xcu_r1', " motors moveCcd %s=%i microns abs" % (motor, lowBound), 5)]
+        else:
+            sequence = [('xcu_r1', " motors moveCcd a=%i b=%i c=%i microns abs" \
+                         % (startPosition[0], startPosition[1], startPosition[2]), 5)]
+
         sequence += seq_expTime
 
-        for i in range(nbImage - 2):
+        for i in range(nbImage - 1):
             sequence += [('xcu_r1', " motors moveCcd %s=%i microns " % (motor, step[i]), 5)]
             sequence += seq_expTime
-
-        sequence += [('xcu_r1', " motors moveCcd %s=%i microns abs" % (motor, highBound), 5)]
-        sequence += seq_expTime
 
         return sequence
