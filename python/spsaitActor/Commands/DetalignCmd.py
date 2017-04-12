@@ -106,7 +106,7 @@ class DetalignCmd(object):
         else:
             sequence = [('xcu_r1', " motors moveCcd a=%i b=%i c=%i microns abs" \
                          % (startPosition[0], startPosition[1], startPosition[2]), 5)]
-
+        sequence += [('xcu_r1', " motors status", 5)]
         sequence += seq_expTime
 
         for i in range(nbImage - 1):
