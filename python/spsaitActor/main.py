@@ -32,7 +32,8 @@ class SpsaitActor(Actor):
         self.stopExposure = False
         self.expTime = 1.0
 
-        self.myThread = {"expose": QThread(self, "expose"), "detalign": QThread(self, "detalign")}
+        self.myThread = {"expose": QThread(self, "expose"), "detalign": QThread(self, "detalign"),
+                         "dither": QThread(self, "dither")}
         for thread in self.myThread.itervalues():
             thread.start()
             thread.handleTimeout = self.sleep
@@ -76,6 +77,19 @@ class SpsaitActor(Actor):
             self.statusLoopCB(controller)
         else:
             cmd.warn('text="adjusted %s loop to %gs"' % (controller, self.monitors[controller]))
+
+    def safeCall(self, **kwargs):
+
+        cmd = kwargs["forUserCmd"]
+        cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
+
+        cmdVar = self.cmdr.call(**kwargs)
+
+        stat = cmdVar.lastReply.canonical().split(" ", 4)[-1]
+
+        if cmdVar.didFail:
+            cmd.warn(stat)
+            raise Exception("%s has failed" % cmdStr)
 
     def sleep(self):
         pass

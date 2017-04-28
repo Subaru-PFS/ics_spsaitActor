@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 
 
+import sys
 import time
 
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import threaded
+from wrap import threaded, formatException
 
 
 class DetalignCmd(object):
@@ -21,7 +22,7 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign',
-             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [@(switchOff)] [<startPosition>]',
+             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] [<startPosition>]',
              self.throughFocus),
         ]
 
@@ -38,8 +39,9 @@ class DetalignCmd(object):
 
     @threaded
     def throughFocus(self, cmd):
+        ti = 0.2
         cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.cmdr.call
+        cmdCall = self.actor.safeCall
 
         nbImage = cmdKeys['nb'].values[0]
         expTimes = cmdKeys['exptime'].values
@@ -64,15 +66,22 @@ class DetalignCmd(object):
         if arcLamp is not None:
             cmdCall(actor='dcb', cmdStr="switch arc=%s attenuator=255" % arcLamp, timeLim=300, forUserCmd=cmd)
 
-        ti = 0.5
+        for exptime in expTimes:
+            if exptime <= 0:
+                cmd.fail("text='exptime must be positive'")
+                return
 
-        if expTimes[0] > 0 and nbImage > 1:
+        if nbImage <= 1:
+            cmd.fail("text='nbImage must be at least 2'")
+            return
+
+        try:
 
             sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, highBound, motor, startPosition)
             for actor, cmdStr, tempo in sequence:
                 if self.actor.stopSequence:
                     break
-                cmdCall(actor=actor, cmdStr=cmdStr, forUserCmd=cmd)
+                cmdCall(actor=actor, cmdStr=cmdStr, forUserCmd=cmd, timeLim=120)
                 for i in range(int(tempo // ti)):
                     if self.actor.stopSequence:
                         break
@@ -83,9 +92,11 @@ class DetalignCmd(object):
                 if switchOff:
                     cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=30, forUserCmd=cmd)
 
-            cmd.finish("text='Through focus is over'")
-        else:
-            cmd.fail("text='exptime must be positive'")
+        except Exception as e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+
+        cmd.finish("text='Through Focus is over'")
 
     def buildThroughFocus(self, nbImage, expTimes, lowBound, highBound, motor, startPosition):
 

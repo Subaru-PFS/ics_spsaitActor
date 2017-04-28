@@ -16,14 +16,14 @@ class TestCmd(object):
         # associated methods when matched. The callbacks will be
         # passed a single argument, the parsed and typed command.
         #
-
+        self.name = "test"
         self.vocab = [
-            ('exptes', '@(flat) @(<exptime>) [@(switchOff)]', self.test),
-            ('exptes', '@(arc) @(<exptime>) [@(ne|hgar|xenon)] [@(switchOff)]', self.test),
+            ('exptes', 'flat <exptime> [switchOff]', self.test),
+            ('exptes', 'arc <exptime> [@(ne|hgar|xenon)] [switchOff]', self.test),
             ('exptes', '<nbias>', self.test),
             ('exptes', '<darks>', self.test),
             ('tesalign',
-             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [@(switchOff)] [<startPosition>]',
+             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] [<startPosition>]',
              self.test),
             ('slit', 'focus <nb> <exptime> <lowBound> <highBound> [@(ne|hgar|xenon)]', self.test),
             ('slit', 'dither <nb> <exptime> <lowBound> <highBound> [@(ne|hgar|xenon)]', self.test),

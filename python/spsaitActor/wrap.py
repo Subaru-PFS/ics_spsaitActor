@@ -18,3 +18,5 @@ def formatException(e, traceback):
         return str(string).replace("'", "").replace('"', "")
 
     return "%s %s %s" % (clean(type(e)), clean(type(e)(*e.args)), clean(tb.format_tb(traceback, limit=1)[0]))
+
+
