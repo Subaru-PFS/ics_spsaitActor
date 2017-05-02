@@ -20,7 +20,7 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', '<exptime> <nb> <shift> [switchOff]', self.dither),
+            ('dither', '<nb> <exptime> <shift> [switchOff]', self.dither),
 
         ]
 

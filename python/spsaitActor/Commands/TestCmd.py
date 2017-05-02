@@ -25,8 +25,7 @@ class TestCmd(object):
             ('tesalign',
              'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] [<startPosition>]',
              self.test),
-            ('slit', 'focus <nb> <exptime> <lowBound> <highBound> [@(ne|hgar|xenon)]', self.test),
-            ('slit', 'dither <nb> <exptime> <lowBound> <highBound> [@(ne|hgar|xenon)]', self.test),
+            ('dithes', '<nb> <exptime> <shift> [switchOff]', self.test),
 
         ]
 
