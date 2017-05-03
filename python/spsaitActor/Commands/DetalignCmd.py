@@ -22,7 +22,7 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign',
-             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] [<startPosition>]',
+             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [<attenuator>] [<startPosition>] [switchOff]',
              self.throughFocus),
         ]
 
@@ -33,6 +33,7 @@ class DetalignCmd(object):
                                         keys.Key("lowBound", types.Float(), help="lower bound for through focus"),
                                         keys.Key("highBound", types.Float(), help="higher bound for through focus"),
                                         keys.Key("motor", types.String(), help="optional to move a single motor"),
+                                        keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         keys.Key("startPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
                                          The 3 motors positions are required. If it is not set the lowBound position is used. ")
                                         )
@@ -49,7 +50,7 @@ class DetalignCmd(object):
         highBound = cmdKeys['highBound'].values[0]
         motor = cmdKeys['motor'].values[0] if "motor" in cmdKeys else "piston"
         startPosition = cmdKeys['startPosition'].values if "startPosition" in cmdKeys else None
-
+        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         switchOff = True if "switchOff" in cmdKeys else False
 
         self.actor.stopSequence = False
@@ -64,7 +65,7 @@ class DetalignCmd(object):
             arcLamp = None
 
         if arcLamp is not None:
-            cmdCall(actor='dcb', cmdStr="switch arc=%s attenuator=255" % arcLamp, timeLim=300, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="switch arc=%s %s" % (arcLamp, attenCmd), timeLim=300, forUserCmd=cmd)
 
         for exptime in expTimes:
             if exptime <= 0:

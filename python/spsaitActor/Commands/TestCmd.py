@@ -18,14 +18,13 @@ class TestCmd(object):
         #
         self.name = "test"
         self.vocab = [
-            ('exptes', 'flat <exptime> [switchOff]', self.test),
-            ('exptes', 'arc <exptime> [@(ne|hgar|xenon)] [switchOff]', self.test),
+            ('exptes', 'flat <exptime> [<attenuator>] [switchOff]', self.test),
+            ('exptes', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.test),
             ('exptes', '<nbias>', self.test),
             ('exptes', '<darks>', self.test),
-            ('tesalign',
-             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] [<startPosition>]',
-             self.test),
-            ('dithes', '<nb> <exptime> <shift> [switchOff]', self.test),
+            ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
+                         '[<attenuator>] [<startPosition>]', self.test),
+            ('dithes', '<nb> <exptime> <shift> [<attenuator>] [switchOff]', self.test),
 
         ]
 
@@ -42,6 +41,8 @@ class TestCmd(object):
                                                  help='number of biases to take'),
                                         keys.Key("darks", types.Float() * (1,),
                                                  help='list of dark times to take'),
+                                        keys.Key("attenuator", types.Int(), help="optional attenuator value"),
+
                                         )
 
     def test(self, cmd):

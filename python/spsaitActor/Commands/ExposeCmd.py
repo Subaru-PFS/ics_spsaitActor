@@ -23,8 +23,8 @@ class ExposeCmd(object):
             ('expose', 'ping', self.ping),
             ('expose', 'status', self.status),
             ('expose', 'object <exptime> [<comment>]', self.doExposure),
-            ('expose', 'flat <exptime> [switchOff]', self.doFlat),
-            ('expose', 'arc <exptime> [@(ne|hgar|xenon)] [switchOff]', self.doArc),
+            ('expose', 'flat <exptime> [<attenuator>] [switchOff]', self.doFlat),
+            ('expose', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.doArc),
 
         ]
 
@@ -32,6 +32,7 @@ class ExposeCmd(object):
         self.keys = keys.KeysDictionary("spsait_expose", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("comment", types.String(), help="user comment"),
+                                        keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         )
 
     @property
@@ -62,6 +63,7 @@ class ExposeCmd(object):
 
         exptime = cmdKeys['exptime'].values[0]
         switchOff = True if "switchOff" in cmdKeys else False
+        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
         expType = "arc"
 
@@ -83,7 +85,7 @@ class ExposeCmd(object):
                 raise Exception("Shutters are not in position")
 
             if arcLamp is not None:
-                cmdCall(actor='dcb', cmdStr="switch arc=%s attenuator=255" % arcLamp, timeLim=300, forUserCmd=cmd)
+                cmdCall(actor='dcb', cmdStr="switch arc=%s %s" % (arcLamp, attenCmd), timeLim=300, forUserCmd=cmd)
 
             flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
@@ -109,12 +111,12 @@ class ExposeCmd(object):
                 raise Exception("Exposure did not occur as expected (interlock ?) Aborting ... ")
 
             cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
-                          timeLim=120, forUserCmd=cmd)
+                    timeLim=120, forUserCmd=cmd)
 
             if arcLamp is not None:
                 if switchOff:
                     cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=30,
-                                  forUserCmd=cmd)
+                            forUserCmd=cmd)
 
         except Exception as e:
             cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
@@ -169,8 +171,8 @@ class ExposeCmd(object):
                 raise Exception("Exposure did not occur as expected (interlock ?) Aborting ... ")
 
             cmdCall(actor='ccd_r1',
-                          cmdStr="read %s exptime=%.3f obstime=%s %s" % (expType, exptime, dateobs, comment),
-                          timeLim=120, forUserCmd=cmd)
+                    cmdStr="read %s exptime=%.3f obstime=%s %s" % (expType, exptime, dateobs, comment),
+                    timeLim=120, forUserCmd=cmd)
 
         except Exception as e:
             cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
@@ -192,7 +194,7 @@ class ExposeCmd(object):
 
         exptime = cmdKeys['exptime'].values[0]
         switchOff = True if "switchOff" in cmdKeys else False
-
+        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         expType = "flat"
 
         try:
@@ -203,7 +205,7 @@ class ExposeCmd(object):
             if not (state == "IDLE" and position == "close") or self.stopExposure:
                 raise Exception("shutters not in position")
 
-            cmdCall(actor='dcb', cmdStr="switch arc=halogen attenuator=255", timeLim=300, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="switch arc=halogen %s" % attenCmd, timeLim=300, forUserCmd=cmd)
 
             flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
@@ -229,7 +231,7 @@ class ExposeCmd(object):
                 raise Exception("Exposure did not occur as expected (interlock ?) Aborting ... ")
 
             cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
-                          timeLim=120, forUserCmd=cmd)
+                    timeLim=120, forUserCmd=cmd)
 
             if switchOff:
                 cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=30, forUserCmd=cmd)

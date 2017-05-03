@@ -20,7 +20,7 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', '<nb> <exptime> <shift> [switchOff]', self.dither),
+            ('dither', '<nb> <exptime> <shift> [<attenuator>] [switchOff]', self.dither),
 
         ]
 
@@ -29,6 +29,7 @@ class DitherCmd(object):
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("nb", types.Int(), help="Number of position"),
                                         keys.Key("shift", types.Float(), help="shift in microns"),
+                                        keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         )
 
     @threaded
@@ -44,6 +45,7 @@ class DitherCmd(object):
 
         self.actor.stopSequence = False
         switchOff = True if "switchOff" in cmdKeys else False
+        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
         [state, mode, x, y, z, u, v, w] = enuKeys.keyVarDict['slit'].getValue()
 
@@ -56,7 +58,7 @@ class DitherCmd(object):
             return
 
         try:
-            sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime)
+            sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, attenCmd)
             for actor, cmdStr, tempo in sequence:
                 if self.actor.stopSequence:
                     break
@@ -76,8 +78,8 @@ class DitherCmd(object):
 
         cmd.finish("text='Dithering is over'")
 
-    def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime):
-        sequence = [('spsait', "expose flat exptime=%.2f" % exptime, 0)]
+    def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime, attenCmd):
+        sequence = [('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), 0)]
 
         for i in range(nbImage):
             sequence += [('enu', " slit dither pix=-%.5f " % shift, 5)]
