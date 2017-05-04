@@ -6,7 +6,7 @@ import time
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import threaded, formatException
+from wrap import threaded, formatException, CmdSeq
 
 
 class DitherCmd(object):
@@ -35,15 +35,16 @@ class DitherCmd(object):
     @threaded
     def dither(self, cmd):
         ti = 0.2
-        cmdKeys = cmd.cmd.keywords
-        nbImage = cmdKeys['nb'].values[0]
-        exptime = cmdKeys['exptime'].values[0]
-        shift = cmdKeys['shift'].values[0]/1000
+        e = False
+        self.actor.stopSequence = False
 
+        cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
         enuKeys = self.actor.models['enu']
 
-        self.actor.stopSequence = False
+        nbImage = cmdKeys['nb'].values[0]
+        exptime = cmdKeys['exptime'].values[0]
+        shift = cmdKeys['shift'].values[0] / 1000
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
@@ -59,36 +60,40 @@ class DitherCmd(object):
 
         try:
             sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, attenCmd)
-            for actor, cmdStr, tempo in sequence:
+            for cmdSeq in sequence:
                 if self.actor.stopSequence:
                     break
-                cmdCall(actor=actor, cmdStr=cmdStr, forUserCmd=cmd, timeLim=120)
-                for i in range(int(tempo // ti)):
+                cmdCall(**(cmdSeq.build(cmd)))
+                for i in range(int(cmdSeq.tempo // ti)):
                     if self.actor.stopSequence:
                         break
                     time.sleep(ti)
-                time.sleep(tempo % ti)
-
-            if switchOff:
-                cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=30, forUserCmd=cmd)
+                time.sleep(cmdSeq.tempo % ti)
 
         except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+            pass
 
-        cmd.finish("text='Dithering is over'")
+        if switchOff:
+            cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=60, forUserCmd=cmd)
+
+        if e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+        else:
+            cmd.finish("text='Dithering is over'")
 
     def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime, attenCmd):
-        sequence = [('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), 0)]
+
+        sequence = [CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), timeLim=500)]
 
         for i in range(nbImage):
-            sequence += [('enu', " slit dither pix=-%.5f " % shift, 5)]
-            sequence += [('spsait', "expose flat exptime=%.2f" % exptime, 0)]
+            sequence += [CmdSeq('enu', " slit dither pix=-%.5f " % shift, tempo=5)]
+            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=200)]
 
-        sequence += [('enu', " slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w), 5)]
+        sequence += [CmdSeq('enu', " slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w),
+                            tempo=5)]
 
         for i in range(nbImage):
-            sequence += [('enu', " slit dither pix=%.5f " % shift, 5)]
-            sequence += [('spsait', "expose flat exptime=%.2f" % exptime, 0)]
+            sequence += [CmdSeq('enu', " slit dither pix=%.5f " % shift, tempo=5)]
+            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timLim=200)]
 
         return sequence

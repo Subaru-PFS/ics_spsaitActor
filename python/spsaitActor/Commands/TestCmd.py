@@ -2,9 +2,11 @@
 
 
 import random
-
+import time
+import sys
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+from wrap import CmdSeq, formatException
 
 
 class TestCmd(object):
@@ -22,9 +24,10 @@ class TestCmd(object):
             ('exptes', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.test),
             ('exptes', '<nbias>', self.test),
             ('exptes', '<darks>', self.test),
-            ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
+            ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
                          '[<attenuator>] [<startPosition>]', self.test),
             ('dithes', '<nb> <exptime> <shift> [<attenuator>] [switchOff]', self.test),
+
 
         ]
 
@@ -32,7 +35,7 @@ class TestCmd(object):
         self.keys = keys.KeysDictionary("spsait_tesalign", (1, 1),
                                         keys.Key("exptime", types.Float() * (1,), help="The exposure time(s)"),
                                         keys.Key("nb", types.Int(), help="Number of position"),
-                                        keys.Key("lowBound", types.Float(), help="lower bound for through focus"),
+                                        keys.Key("upBound", types.Float(), help="lower bound for through focus"),
                                         keys.Key("highBound", types.Float(), help="higher bound for through focus"),
                                         keys.Key("motor", types.String(), help="optional to move a single motor"),
                                         keys.Key("startPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\

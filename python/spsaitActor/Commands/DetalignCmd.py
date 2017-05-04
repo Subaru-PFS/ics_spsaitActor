@@ -4,10 +4,9 @@
 import sys
 import time
 
-import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import threaded, formatException
+from wrap import threaded, formatException, CmdSeq
 
 
 class DetalignCmd(object):
@@ -22,7 +21,7 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign',
-             'throughfocus <nb> <exptime> <lowBound> <highBound> [<motor>] [@(ne|hgar|xenon)] [<attenuator>] [<startPosition>] [switchOff]',
+             'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [<attenuator>] [<startPosition>] [switchOff]',
              self.throughFocus),
         ]
 
@@ -31,7 +30,7 @@ class DetalignCmd(object):
                                         keys.Key("exptime", types.Float() * (1,), help="The exposure time(s)"),
                                         keys.Key("nb", types.Int(), help="Number of position"),
                                         keys.Key("lowBound", types.Float(), help="lower bound for through focus"),
-                                        keys.Key("highBound", types.Float(), help="higher bound for through focus"),
+                                        keys.Key("upBound", types.Float(), help="upper bound for through focus"),
                                         keys.Key("motor", types.String(), help="optional to move a single motor"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         keys.Key("startPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
@@ -41,19 +40,19 @@ class DetalignCmd(object):
     @threaded
     def throughFocus(self, cmd):
         ti = 0.2
+        e = False
+        self.actor.stopSequence = False
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
 
         nbImage = cmdKeys['nb'].values[0]
         expTimes = cmdKeys['exptime'].values
         lowBound = cmdKeys['lowBound'].values[0]
-        highBound = cmdKeys['highBound'].values[0]
+        upBound = cmdKeys['upBound'].values[0]
         motor = cmdKeys['motor'].values[0] if "motor" in cmdKeys else "piston"
         startPosition = cmdKeys['startPosition'].values if "startPosition" in cmdKeys else None
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         switchOff = True if "switchOff" in cmdKeys else False
-
-        self.actor.stopSequence = False
 
         if "ne" in cmdKeys:
             arcLamp = "ne"
@@ -64,9 +63,6 @@ class DetalignCmd(object):
         else:
             arcLamp = None
 
-        if arcLamp is not None:
-            cmdCall(actor='dcb', cmdStr="switch arc=%s %s" % (arcLamp, attenCmd), timeLim=300, forUserCmd=cmd)
-
         for exptime in expTimes:
             if exptime <= 0:
                 cmd.fail("text='exptime must be positive'")
@@ -76,53 +72,50 @@ class DetalignCmd(object):
             cmd.fail("text='nbImage must be at least 2'")
             return
 
-        try:
+        if arcLamp is not None:
+            cmdCall(actor='dcb', cmdStr="switch arc=%s %s" % (arcLamp, attenCmd), timeLim=60, forUserCmd=cmd)
 
-            sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, highBound, motor, startPosition)
-            for actor, cmdStr, tempo in sequence:
+        sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, upBound, motor, startPosition)
+
+        try:
+            for cmdSeq in sequence:
                 if self.actor.stopSequence:
                     break
-                cmdCall(actor=actor, cmdStr=cmdStr, forUserCmd=cmd, timeLim=120)
-                for i in range(int(tempo // ti)):
+                cmdCall(**(cmdSeq.build(cmd)))
+                for i in range(int(cmdSeq.tempo // ti)):
                     if self.actor.stopSequence:
                         break
                     time.sleep(ti)
-                time.sleep(tempo % ti)
-
-            if arcLamp is not None:
-                if switchOff:
-                    cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=30, forUserCmd=cmd)
+                time.sleep(cmdSeq.tempo % ti)
 
         except Exception as e:
+            pass
+
+        if arcLamp is not None and switchOff:
+            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=60, forUserCmd=cmd)
+
+        if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        else:
+            cmd.finish("text='Through Focus is over'")
 
-        cmd.finish("text='Through Focus is over'")
+    def buildThroughFocus(self, nbImage, expTimes, lowBound, upBound, motor, startPosition):
 
-    def buildThroughFocus(self, nbImage, expTimes, lowBound, highBound, motor, startPosition):
-
-        offset = 12
-        linear = np.ones(nbImage - 1) * (highBound - lowBound) / (nbImage - 1)
-        coeff = offset + (np.arange(nbImage - 1) - (nbImage - 1) / 2) ** 2
-        k = sum(coeff * linear) / (highBound - lowBound)
-        coeff = coeff / k
-        # try linear first
-        coeff = 1
-        step = coeff * linear
-
-        seq_expTime = [('spsait', "expose arc exptime=%.2f " % expTime, 0) for expTime in expTimes]
+        step = (upBound - lowBound) / (nbImage - 1)
 
         # Number of microns must be an integer
         if startPosition is None:
-            sequence = [('xcu_r1', " motors moveCcd %s=%i microns abs" % (motor, lowBound), 5)]
+            sequence = [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns abs" % (motor, lowBound), doRetry=True, tempo=5)]
         else:
-            sequence = [('xcu_r1', " motors moveCcd a=%i b=%i c=%i microns abs" \
-                         % (startPosition[0], startPosition[1], startPosition[2]), 5)]
-        sequence += [('xcu_r1', " motors status", 5)]
+            sequence = [CmdSeq('xcu_r1', "motors moveCcd a=%i b=%i c=%i microns abs" %
+                               (startPosition[0], startPosition[1], startPosition[2]), doRetry=True, tempo=5)]
+
+        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f " % expTime, timeLim=240) for expTime in expTimes]
+
         sequence += seq_expTime
 
         for i in range(nbImage - 1):
-            sequence += [('xcu_r1', " motors moveCcd %s=%i microns " % (motor, step[i]), 5)]
+            sequence += [CmdSeq('xcu_r1', " motors moveCcd %s=%i microns " % (motor, step), tempo=5)]
             sequence += seq_expTime
 
         return sequence

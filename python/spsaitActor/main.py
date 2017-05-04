@@ -3,7 +3,7 @@
 import ConfigParser
 import argparse
 import logging
-
+import time
 from actorcore.Actor import Actor
 from actorcore.QThread import QThread
 from opscore.utility.qstr import qstr
@@ -83,13 +83,19 @@ class SpsaitActor(Actor):
         cmd = kwargs["forUserCmd"]
         cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
 
+        doRetry = kwargs.pop("doRetry", None)
+
         cmdVar = self.cmdr.call(**kwargs)
 
         stat = cmdVar.lastReply.canonical().split(" ", 4)[-1]
 
         if cmdVar.didFail:
             cmd.warn(stat)
-            raise Exception("%s has failed" % cmdStr)
+            if not doRetry:
+                raise Exception("%s has failed" % cmdStr)
+            else:
+                time.sleep(5)
+                self.safeCall(**kwargs)
 
     def sleep(self):
         pass
