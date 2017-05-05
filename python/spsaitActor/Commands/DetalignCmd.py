@@ -2,7 +2,6 @@
 
 
 import sys
-import time
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
@@ -39,9 +38,8 @@ class DetalignCmd(object):
 
     @threaded
     def throughFocus(self, cmd):
-        ti = 0.2
         e = False
-        self.actor.stopSequence = False
+
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
 
@@ -78,16 +76,7 @@ class DetalignCmd(object):
         sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, upBound, motor, startPosition)
 
         try:
-            for cmdSeq in sequence:
-                if self.actor.stopSequence:
-                    break
-                cmdCall(**(cmdSeq.build(cmd)))
-                for i in range(int(cmdSeq.tempo // ti)):
-                    if self.actor.stopSequence:
-                        break
-                    time.sleep(ti)
-                time.sleep(cmdSeq.tempo % ti)
-
+            self.actor.processSequence(cmd, sequence)
         except Exception as e:
             pass
 

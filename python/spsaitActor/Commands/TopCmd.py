@@ -20,7 +20,7 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('adjust', 'slitalign <exptime>', self.adjust),
-            ('stop', '', self.stop),
+            ('stop', '[all]', self.stop),
             ('abort', '', self.abort),
         ]
 
@@ -42,13 +42,18 @@ class TopCmd(object):
 
     def stop(self, cmd):
         self.actor.stopSequence = True
-        cmd.inform("text='Stopping current sequence'")
-        self.abort(cmd)
 
-    def abort(self, cmd):
+        if "all" in cmd.cmd.keywords:
+            self.abort(cmd, doFinish=False)
+
+        cmd.finish("text='Stopping current sequence'")
+
+    def abort(self, cmd, doFinish=True):
         self.actor.stopExposure = True
+        ender = cmd.finish if doFinish else cmd.inform
+
         self.actor.cmdr.call(actor='enu', cmdStr="shutters abort", forUserCmd=cmd)
-        cmd.finish("text='Stopping current exposure'")
+        ender("text='Stopping current exposure'")
 
     def adjust(self, cmd):
         expTime = cmd.cmd.keywords['exptime'].values[0]

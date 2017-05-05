@@ -4,6 +4,7 @@ import ConfigParser
 import argparse
 import logging
 import time
+
 from actorcore.Actor import Actor
 from actorcore.QThread import QThread
 from opscore.utility.qstr import qstr
@@ -96,6 +97,20 @@ class SpsaitActor(Actor):
             else:
                 time.sleep(5)
                 self.safeCall(**kwargs)
+
+    def processSequence(self, cmd, sequence):
+        ti = 0.2
+        self.stopSequence = False
+
+        for cmdSeq in sequence:
+            if self.stopSequence:
+                raise Exception("Stop sequence requested")
+            self.safeCall(**(cmdSeq.build(cmd)))
+            for i in range(int(cmdSeq.tempo // ti)):
+                if self.stopSequence:
+                    raise Exception("Stop sequence requested")
+                time.sleep(ti)
+            time.sleep(cmdSeq.tempo % ti)
 
     def sleep(self):
         pass

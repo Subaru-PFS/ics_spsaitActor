@@ -2,11 +2,11 @@
 
 
 import random
-import time
 import sys
+
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import CmdSeq, formatException
+from wrap import CmdSeq, formatException, threaded
 
 
 class TestCmd(object):
@@ -27,8 +27,6 @@ class TestCmd(object):
             ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
                          '[<attenuator>] [<startPosition>]', self.test),
             ('dithes', '<nb> <exptime> <shift> [<attenuator>] [switchOff]', self.test),
-
-
         ]
 
         # Define typed command arguments for the above commands.

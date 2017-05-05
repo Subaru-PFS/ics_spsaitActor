@@ -2,7 +2,6 @@
 
 
 import sys
-import time
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
@@ -34,9 +33,7 @@ class DitherCmd(object):
 
     @threaded
     def dither(self, cmd):
-        ti = 0.2
         e = False
-        self.actor.stopSequence = False
 
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
@@ -58,18 +55,10 @@ class DitherCmd(object):
             cmd.fail("text='nbImage must be at least 1'")
             return
 
-        try:
-            sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, attenCmd)
-            for cmdSeq in sequence:
-                if self.actor.stopSequence:
-                    break
-                cmdCall(**(cmdSeq.build(cmd)))
-                for i in range(int(cmdSeq.tempo // ti)):
-                    if self.actor.stopSequence:
-                        break
-                    time.sleep(ti)
-                time.sleep(cmdSeq.tempo % ti)
+        sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, attenCmd)
 
+        try:
+            self.actor.processSequence(cmd, sequence)
         except Exception as e:
             pass
 
