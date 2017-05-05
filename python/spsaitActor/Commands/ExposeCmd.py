@@ -98,7 +98,7 @@ class ExposeCmd(object):
             return
 
         try:
-            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=20, forUserCmd=cmd)
+            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=60, forUserCmd=cmd)
 
             state = ccdKeys.keyVarDict['exposureState'].getValue()
             if state != "integrating" or self.stopExposure:
@@ -112,13 +112,13 @@ class ExposeCmd(object):
                 raise Exception("Exposure did not occur as expected (interlock ?) Aborting ... ")
 
             cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
-                    timeLim=120, forUserCmd=cmd)
+                    timeLim=300, forUserCmd=cmd)
 
         except Exception as e:
             cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
 
         if arcLamp is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=30, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=60, forUserCmd=cmd)
 
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
@@ -161,7 +161,7 @@ class ExposeCmd(object):
             return
 
         try:
-            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=20, forUserCmd=cmd)
+            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=60, forUserCmd=cmd)
 
             state = ccdKeys.keyVarDict['exposureState'].getValue()
             if state != "integrating" or self.stopExposure:
@@ -175,13 +175,13 @@ class ExposeCmd(object):
                 raise Exception("Exposure did not occur as expected (interlock ?) Aborting ... ")
 
             cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
-                    timeLim=120, forUserCmd=cmd)
+                    timeLim=300, forUserCmd=cmd)
 
         except Exception as e:
             cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
 
         if switchOff:
-            cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=30, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=60, forUserCmd=cmd)
 
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
@@ -220,7 +220,7 @@ class ExposeCmd(object):
             raise Exception("aborting exposure")
 
         try:
-            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=20, forUserCmd=cmd)
+            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=60, forUserCmd=cmd)
 
             state = ccdKeys.keyVarDict['exposureState'].getValue()
             if state != "integrating" or self.stopExposure:
@@ -235,7 +235,7 @@ class ExposeCmd(object):
 
             cmdCall(actor='ccd_r1',
                     cmdStr="read %s exptime=%.3f obstime=%s %s" % (expType, exptime, dateobs, comment),
-                    timeLim=120, forUserCmd=cmd)
+                    timeLim=300, forUserCmd=cmd)
 
         except Exception as e:
             cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)

@@ -110,7 +110,7 @@ class DetalignCmd(object):
             sequence = [CmdSeq('xcu_r1', "motors moveCcd a=%i b=%i c=%i microns abs" %
                                (startPosition[0], startPosition[1], startPosition[2]), doRetry=True, tempo=5)]
 
-        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f " % expTime, timeLim=240) for expTime in expTimes]
+        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f " % expTime, timeLim=500) for expTime in expTimes]
 
         sequence += seq_expTime
 

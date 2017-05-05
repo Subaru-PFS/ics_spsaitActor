@@ -87,13 +87,13 @@ class DitherCmd(object):
 
         for i in range(nbImage):
             sequence += [CmdSeq('enu', " slit dither pix=-%.5f " % shift, tempo=5)]
-            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=200)]
+            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=500)]
 
         sequence += [CmdSeq('enu', " slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w),
                             tempo=5)]
 
         for i in range(nbImage):
             sequence += [CmdSeq('enu', " slit dither pix=%.5f " % shift, tempo=5)]
-            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timLim=200)]
+            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=500)]
 
         return sequence
