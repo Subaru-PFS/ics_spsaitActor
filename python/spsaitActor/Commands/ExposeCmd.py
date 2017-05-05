@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import threaded, formatException
+from spsaitActor.utils import threaded, formatException
 
 
 class ExposeCmd(object):
@@ -20,12 +20,9 @@ class ExposeCmd(object):
         #
         self.name = "expose"
         self.vocab = [
-            ('expose', 'ping', self.ping),
-            ('expose', 'status', self.status),
             ('expose', 'object <exptime> [<comment>]', self.doExposure),
             ('expose', 'flat <exptime> [<attenuator>] [switchOff]', self.doFlat),
             ('expose', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.doArc),
-
         ]
 
         # Define typed command arguments for the above commands.
@@ -37,23 +34,14 @@ class ExposeCmd(object):
 
     @property
     def stopExposure(self):
-        return self.actor.stopExposure
+        return self.actor.boolStop[self.name]
 
-    def ping(self, cmd):
-        """Query the actor for liveness/happiness."""
-
-        cmd.finish("text='Present and (probably) well'")
-
-    def status(self, cmd):
-        """Report status and version; obtain and send current data"""
-
-        cmd.inform('text="Present!"')
-        cmd.finish()
+    def resetExposure(self):
+        self.actor.boolStop[self.name] = False
 
     @threaded
     def doArc(self, cmd):
-
-        self.actor.stopExposure = False
+        self.resetExposure()
         e = False
 
         cmdKeys = cmd.cmd.keywords
@@ -127,9 +115,9 @@ class ExposeCmd(object):
 
     @threaded
     def doFlat(self, cmd):
-
-        self.actor.stopExposure = False
+        self.resetExposure()
         e = False
+
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
         enuKeys = self.actor.models['enu']
@@ -190,8 +178,7 @@ class ExposeCmd(object):
 
     @threaded
     def doExposure(self, cmd):
-
-        self.actor.stopExposure = False
+        self.resetExposure()
 
         cmdCall = self.actor.safeCall
         cmdKeys = cmd.cmd.keywords

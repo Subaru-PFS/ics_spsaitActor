@@ -5,7 +5,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import threaded, formatException, CmdSeq
+from spsaitActor.utils import threaded, formatException, CmdSeq
 
 
 class DetalignCmd(object):
@@ -76,7 +76,7 @@ class DetalignCmd(object):
         sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, upBound, motor, startPosition)
 
         try:
-            self.actor.processSequence(cmd, sequence)
+            self.actor.processSequence(self.name, cmd, sequence)
         except Exception as e:
             pass
 
@@ -89,7 +89,6 @@ class DetalignCmd(object):
             cmd.finish("text='Through Focus is over'")
 
     def buildThroughFocus(self, nbImage, expTimes, lowBound, upBound, motor, startPosition):
-
         step = (upBound - lowBound) / (nbImage - 1)
 
         # Number of microns must be an integer

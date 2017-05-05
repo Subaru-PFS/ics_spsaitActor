@@ -8,7 +8,7 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from astropy.io import fits
 from imgtool import centroid
-from wrap import threaded
+from spsaitActor.utils import threaded
 
 
 class SlitalignCmd(object):
@@ -20,6 +20,7 @@ class SlitalignCmd(object):
         # associated methods when matched. The callbacks will be
         # passed a single argument, the parsed and typed command.
         #
+        self.name = "slitalign"
         self.vocab = [
             ('slitalign', 'loop <exptime>', self.loop),
             ('slitalign', 'throughfocus <nb> <exptime> <prefix> <lowBound> <highBound>', self.throughFocus),

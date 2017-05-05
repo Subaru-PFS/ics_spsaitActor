@@ -20,8 +20,7 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('adjust', 'slitalign <exptime>', self.adjust),
-            ('stop', '[all]', self.stop),
-            ('abort', '', self.abort),
+            ('abort', '@(detalign|exposure|cryo|test)', self.abort),
         ]
 
         # Define typed command arguments for the above commands.
@@ -40,20 +39,24 @@ class TopCmd(object):
         cmd.inform('text="Present!"')
         cmd.finish()
 
-    def stop(self, cmd):
-        self.actor.stopSequence = True
+    def abort(self, cmd):
 
-        if "all" in cmd.cmd.keywords:
-            self.abort(cmd, doFinish=False)
+        cmdKeys = cmd.cmd.keywords
 
-        cmd.finish("text='Stopping current sequence'")
+        if "detalign" in cmdKeys:
+            name = "detalign"
+        elif "exposure" in cmdKeys:
+            name = "exposure"
+        elif "cryo" in cmdKeys:
+            name = "cryo"
+        elif "test" in cmdKeys:
+            name = "test"
 
-    def abort(self, cmd, doFinish=True):
-        self.actor.stopExposure = True
-        ender = cmd.finish if doFinish else cmd.inform
+        self.actor.boolStop[name] = True
+        if name in ["exposure", "detalign"]:
+            self.actor.cmdr.call(actor='enu', cmdStr="shutters abort", forUserCmd=cmd)
 
-        self.actor.cmdr.call(actor='enu', cmdStr="shutters abort", forUserCmd=cmd)
-        ender("text='Stopping current exposure'")
+        cmd.finish("text='Aborting %s sequence'" % name)
 
     def adjust(self, cmd):
         expTime = cmd.cmd.keywords['exptime'].values[0]

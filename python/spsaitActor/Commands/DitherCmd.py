@@ -5,7 +5,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import threaded, formatException, CmdSeq
+from spsaitActor.utils import threaded, formatException, CmdSeq
 
 
 class DitherCmd(object):
@@ -58,7 +58,7 @@ class DitherCmd(object):
         sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, attenCmd)
 
         try:
-            self.actor.processSequence(cmd, sequence)
+            self.actor.processSequence(self.name, cmd, sequence)
         except Exception as e:
             pass
 

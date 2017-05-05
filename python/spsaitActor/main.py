@@ -19,7 +19,7 @@ class SpsaitActor(Actor):
                        name,
                        productName=productName,
                        configFile=configFile,
-                       modelNames=['ccd_r1', 'enu', 'dcb'],
+                       modelNames=['ccd_r1', 'xcu_r1', 'xcu_r0', 'enu', 'dcb'],
                        )
 
         self.logger.setLevel(logLevel)
@@ -29,15 +29,21 @@ class SpsaitActor(Actor):
         self.monitors = dict()
 
         self.statusLoopCB = self.statusLoop
-        self.stopSequence = False
-        self.stopExposure = False
-        self.expTime = 1.0
 
-        self.myThread = {"expose": QThread(self, "expose"), "detalign": QThread(self, "detalign"),
-                         "dither": QThread(self, "dither")}
-        for thread in self.myThread.itervalues():
+        self.expTime = 1.0
+        self.allThreads = {}
+        self.boolStop = {}
+        self.threadedDev = ["expose", "detalign", "dither", "cryo", "test"]
+
+        self.createThreads()
+
+    def createThreads(self):
+        for name in self.threadedDev:
+            thread = QThread(self, name)
             thread.start()
             thread.handleTimeout = self.sleep
+            self.allThreads[name] = thread
+            self.boolStop[name] = False
 
     def reloadConfiguration(self, cmd):
         logging.info("reading config file %s", self.configFile)
@@ -98,17 +104,17 @@ class SpsaitActor(Actor):
                 time.sleep(5)
                 self.safeCall(**kwargs)
 
-    def processSequence(self, cmd, sequence):
+    def processSequence(self, name, cmd, sequence):
         ti = 0.2
-        self.stopSequence = False
+        self.boolStop[name] = False
 
         for cmdSeq in sequence:
-            if self.stopSequence:
-                raise Exception("Stop sequence requested")
+            if self.boolStop[name]:
+                raise Exception("Abort %s requested" % name)
             self.safeCall(**(cmdSeq.build(cmd)))
             for i in range(int(cmdSeq.tempo // ti)):
-                if self.stopSequence:
-                    raise Exception("Stop sequence requested")
+                if self.boolStop[name]:
+                    raise Exception("Abort %s requested" % name)
                 time.sleep(ti)
             time.sleep(cmdSeq.tempo % ti)
 

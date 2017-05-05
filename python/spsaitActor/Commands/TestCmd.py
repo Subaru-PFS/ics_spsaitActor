@@ -6,7 +6,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from wrap import CmdSeq, formatException, threaded
+from spsaitActor.utils import CmdSeq, threaded, formatException
 
 
 class TestCmd(object):
@@ -27,6 +27,7 @@ class TestCmd(object):
             ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
                          '[<attenuator>] [<startPosition>]', self.test),
             ('dithes', '<nb> <exptime> <shift> [<attenuator>] [switchOff]', self.test),
+            ('sequence', '', self.sequence)
         ]
 
         # Define typed command arguments for the above commands.
@@ -43,10 +44,30 @@ class TestCmd(object):
                                         keys.Key("darks", types.Float() * (1,),
                                                  help='list of dark times to take'),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
-
                                         )
 
+    @threaded
     def test(self, cmd):
         r = random.randint(0, 1)
         ender = cmd.finish if r == 0 else cmd.fail
         ender("text='test finished'")
+
+    @threaded
+    def sequence(self, cmd):
+        sequence = [CmdSeq('enu', "slit status", tempo=2),
+                    CmdSeq('enu', "rexm status", tempo=2),
+                    CmdSeq('xcu_r1', "motors status", tempo=2),
+                    CmdSeq('xcu_r1', "cooler status", tempo=2),
+                    CmdSeq('enu', "slit status", tempo=2),
+                    CmdSeq('enu', "rexm status", tempo=2),
+                    CmdSeq('xcu_r1', "motors status", tempo=2),
+                    CmdSeq('xcu_r1', "cooler status", tempo=2),
+                    ]
+
+        try:
+            self.actor.processSequence(self.name, cmd, sequence)
+        except Exception as e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+
+        cmd.finish("text='Test is over'")
