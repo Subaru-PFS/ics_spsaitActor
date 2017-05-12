@@ -5,6 +5,7 @@ import argparse
 import logging
 import time
 
+import spsaitActor.utils as utils
 from actorcore.Actor import Actor
 from actorcore.QThread import QThread
 from opscore.utility.qstr import qstr
@@ -107,14 +108,15 @@ class SpsaitActor(Actor):
     def processSequence(self, name, cmd, sequence):
         ti = 0.2
         self.boolStop[name] = False
+        e = getattr(utils, "%sException" % name.capitalize())
 
         for cmdSeq in sequence:
             if self.boolStop[name]:
-                raise Exception("Abort %s requested" % name)
+                raise e
             self.safeCall(**(cmdSeq.build(cmd)))
             for i in range(int(cmdSeq.tempo // ti)):
                 if self.boolStop[name]:
-                    raise Exception("Abort %s requested" % name)
+                    raise e
                 time.sleep(ti)
             time.sleep(cmdSeq.tempo % ti)
 

@@ -4,7 +4,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, CmdSeq, formatException
+from spsaitActor.utils import threaded, CmdSeq, formatException, CryoException
 
 
 class CryoCmd(object):
@@ -19,6 +19,7 @@ class CryoCmd(object):
         self.name = "cryo"
         self.vocab = [
             ('pressure_rise', '@(r0|r1) [<duration>]', self.pressureTest),
+            ('abort', 'cryo doNone', self.doSleep),
         ]
 
         # Define typed command arguments for the above commands.
@@ -33,10 +34,12 @@ class CryoCmd(object):
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
         found = False
+        self.doNone = False
         duration = cmdKeys['duration'].values[0] if "duration" in cmdKeys else 30
 
         if duration < 2:
-            raise Exception("Test duration is too short")
+            cmd.fail("text='Test duration is too short'")
+            return
 
         if "r0" in cmdKeys:
             arm = "r0"
@@ -55,7 +58,12 @@ class CryoCmd(object):
         pressure = xcuKeys.keyVarDict['pressure'].getValue()
 
         if not (turboSpeed == 90000 and position == "Open" and controlState == "Open" and pressure < 1e-4):
-            raise Exception("Can't do a pressure rise test")
+            cmd.fail("text='Can't do a pressure rise test'")
+            return
+
+        else:
+            cmd.inform("press1=%.5e" % pressure)
+            cmd.inform("gatevalve=%s,%s" % (position, controlState))
 
         seqClosing, seqCheck, seqOpening = self.buildSequence(xcuActor, duration)
 
@@ -66,29 +74,54 @@ class CryoCmd(object):
                 raise Exception("Gatevalve is not closed !")
 
             self.actor.processSequence(self.name, cmd, seqCheck)
+
+        except Exception as e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+        except CryoException as e:
+            if self.doNone:
+                cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+                return
+            else:
+                cmd.warn("text='%s'" % formatException(e, sys.exc_info()[2]))
+        try:
+            [word, position, controlState] = xcuKeys.keyVarDict['gatevalve'].getValue()
+            pressure = xcuKeys.keyVarDict['pressure'].getValue()
+
             if not (position == "Closed" and controlState == "Closed" and turboSpeed == 90000):
                 raise Exception("Impossible to open the gatevalve !")
 
+            cmd.inform("press2=%.5e" % pressure)
+            cmd.inform("gatevalve=%s,%s" % (position, controlState))
+
             self.actor.processSequence(self.name, cmd, seqOpening)
+            [word, position, controlState] = xcuKeys.keyVarDict['gatevalve'].getValue()
             if not (position == "Open" and controlState == "Open"):
                 raise Exception("Gatevalve is not open !")
 
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
 
         cmd.finish("text='Pressure rising test is over'")
 
     def buildSequence(self, xcuActor, duration):
         seqClosing = [CmdSeq(xcuActor, "gauge status"),
-                      CmdSeq(xcuActor, "gatevalve close"),
+                      CmdSeq(xcuActor, "gatevalve close", tempo=5),
                       CmdSeq(xcuActor, "gatevalve status")]
 
         seqCheck = [CmdSeq(xcuActor, "gauge status", tempo=duration * 60),
-                    CmdSeq(xcuActor, "gatevalve status")]
+                    CmdSeq(xcuActor, "gatevalve status"),
+                    CmdSeq(xcuActor, "gauge status"),
+                    CmdSeq(xcuActor, "turbo status")]
 
-        seqOpening = [CmdSeq(xcuActor, "gauge status"),
-                      CmdSeq(xcuActor, "turbo status"),
-                      CmdSeq(xcuActor, "gatevalve open"),
+        seqOpening = [CmdSeq(xcuActor, "gatevalve open", tempo=5),
                       CmdSeq(xcuActor, "gatevalve status")]
 
         return seqClosing, seqCheck, seqOpening
+
+    def doSleep(self, cmd):
+        self.doNone = True
+        self.actor.boolStop["cryo"] = True
+
+        cmd.finish("text='Aborting cryo sequence doNone'")

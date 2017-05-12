@@ -38,3 +38,23 @@ class CmdSeq(object):
                 "timeLim": self.timeLim,
                 "doRetry": self.doRetry,
                 }
+
+
+class CryoException(Exception):
+    def __init__(self, error="Abort cryo requested"):
+        Exception.__init__(self, error)
+
+
+class DetalignException(Exception):
+    def __init__(self, error="Abort detalign requested"):
+        Exception.__init__(self, error)
+
+
+class ExposureException(Exception):
+    def __init__(self, error="Abort exposure requested"):
+        Exception.__init__(self, error)
+
+
+class TestException(Exception):
+    def __init__(self, error="Abort test requested"):
+        Exception.__init__(self, error)
