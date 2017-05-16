@@ -27,7 +27,7 @@ class TestCmd(object):
             ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
                          '[<attenuator>] [<startPosition>]', self.test),
             ('dithes', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [switchOff]', self.test),
-            ('sequence', '', self.sequence)
+            ('sequence', '', self.sequence),
         ]
 
         # Define typed command arguments for the above commands.

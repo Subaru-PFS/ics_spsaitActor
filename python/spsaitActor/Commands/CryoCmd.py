@@ -75,15 +75,17 @@ class CryoCmd(object):
 
             self.actor.processSequence(self.name, cmd, seqCheck)
 
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
         except CryoException as e:
             if self.doNone:
                 cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
                 return
             else:
                 cmd.warn("text='%s'" % formatException(e, sys.exc_info()[2]))
+
+        except Exception as e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+
         try:
             [word, position, controlState] = xcuKeys.keyVarDict['gatevalve'].getValue()
             pressure = xcuKeys.keyVarDict['pressure'].getValue()
