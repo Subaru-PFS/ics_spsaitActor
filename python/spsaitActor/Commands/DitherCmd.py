@@ -19,7 +19,7 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', '<nb> <exptime> <shift> [<attenuator>] [switchOff]', self.dither),
+            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [switchOff]', self.dither),
 
         ]
 
@@ -27,7 +27,7 @@ class DitherCmd(object):
         self.keys = keys.KeysDictionary("spsait_dither", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("nb", types.Int(), help="Number of position"),
-                                        keys.Key("shift", types.Float(), help="shift in microns"),
+                                        keys.Key("shift", types.Float(), help="shift in microns/pixels"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         )
 
@@ -41,7 +41,8 @@ class DitherCmd(object):
 
         nbImage = cmdKeys['nb'].values[0]
         exptime = cmdKeys['exptime'].values[0]
-        shift = cmdKeys['shift'].values[0] / 1000
+        fact = 28.806323 if "pixels" in cmdKeys else 1000
+        shift = cmdKeys['shift'].values[0] / fact
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 

@@ -26,7 +26,7 @@ class TestCmd(object):
             ('exptes', '<darks>', self.test),
             ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
                          '[<attenuator>] [<startPosition>]', self.test),
-            ('dithes', '<nb> <exptime> <shift> [<attenuator>] [switchOff]', self.test),
+            ('dithes', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [switchOff]', self.test),
             ('sequence', '', self.sequence)
         ]
 
