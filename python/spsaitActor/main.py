@@ -89,6 +89,8 @@ class SpsaitActor(Actor):
     def safeCall(self, **kwargs):
 
         cmd = kwargs["forUserCmd"]
+        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.iterkeys() else kwargs["timeLim"]
+
         cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
 
         doRetry = kwargs.pop("doRetry", None)
