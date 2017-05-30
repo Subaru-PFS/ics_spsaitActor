@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException
+from spsaitActor.utils import threaded, formatException, failExposure
 
 
 class ExposeCmd(object):
@@ -103,7 +103,7 @@ class ExposeCmd(object):
                     timeLim=300, forUserCmd=cmd)
 
         except Exception as e:
-            cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
+            self.actor.processSequence(self.name, cmd, failExposure)
 
         if arcLamp is not None and switchOff:
             cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=60, forUserCmd=cmd)
@@ -166,7 +166,7 @@ class ExposeCmd(object):
                     timeLim=300, forUserCmd=cmd)
 
         except Exception as e:
-            cmdCall(actor='ccd_r1', cmdStr="clearExposure", forUserCmd=cmd)
+            self.actor.processSequence(self.name, cmd, failExposure)
 
         if switchOff:
             cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=60, forUserCmd=cmd)
