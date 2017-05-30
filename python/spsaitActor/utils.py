@@ -60,6 +60,6 @@ class TestException(Exception):
         Exception.__init__(self, error)
 
 
-failExposure = [CmdSeq('ccd_r1', "clearExposure "),
+failExposure = [CmdSeq('ccd_r1', "clearExposure"),
                 CmdSeq('ccd_r1', "disconnect controller=fee", tempo=20),
                 CmdSeq('ccd_r1', "connect controller=fee", tempo=20)]

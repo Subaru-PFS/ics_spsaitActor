@@ -64,7 +64,7 @@ class DitherCmd(object):
             pass
 
         if switchOff:
-            cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=60, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="labsphere switch off", forUserCmd=cmd)
 
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
@@ -73,17 +73,19 @@ class DitherCmd(object):
 
     def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime, attenCmd):
 
-        sequence = [CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), timeLim=500)]
+        sequence = [CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), doRetry=True)]
 
         for i in range(nbImage):
-            sequence += [CmdSeq('enu', " slit dither pix=-%.5f " % shift, tempo=5)]
-            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=500)]
+            sequence += [CmdSeq('enu', "slit dither pix=-%.5f" % shift)]
+            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
 
-        sequence += [CmdSeq('enu', " slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w),
-                            tempo=5)]
+        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
 
         for i in range(nbImage):
-            sequence += [CmdSeq('enu', " slit dither pix=%.5f " % shift, tempo=5)]
-            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=500)]
+            sequence += [CmdSeq('enu', "slit dither pix=%.5f " % shift)]
+            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
+
+        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
+        sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
 
         return sequence
