@@ -70,10 +70,7 @@ class DetalignCmd(object):
             cmd.fail("text='nbImage must be at least 2'")
             return
 
-        if arcLamp is not None:
-            cmdCall(actor='dcb', cmdStr="switch arc=%s %s" % (arcLamp, attenCmd), timeLim=60, forUserCmd=cmd)
-
-        sequence = self.buildThroughFocus(nbImage, expTimes, lowBound, upBound, motor, startPosition)
+        sequence = self.buildThroughFocus(arcLamp, attenCmd, nbImage, expTimes, lowBound, upBound, motor, startPosition)
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
@@ -81,29 +78,33 @@ class DetalignCmd(object):
             pass
 
         if arcLamp is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=60, forUserCmd=cmd)
-
+            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, forUserCmd=cmd)
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
         else:
             cmd.finish("text='Through Focus is over'")
 
-    def buildThroughFocus(self, nbImage, expTimes, lowBound, upBound, motor, startPosition):
+    def buildThroughFocus(self, arcLamp, attenCmd, nbImage, expTimes, lowBound, upBound, motor, startPosition):
         step = (upBound - lowBound) / (nbImage - 1)
 
+        if arcLamp is not None:
+            sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arcLamp, attenCmd), doRetry=True)]
+        else:
+            sequence = []
         # Number of microns must be an integer
         if startPosition is None:
-            sequence = [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns abs" % (motor, lowBound), doRetry=True, tempo=5)]
+            sequence += [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns abs" % (motor, lowBound), doRetry=True)]
         else:
-            sequence = [CmdSeq('xcu_r1', "motors moveCcd a=%i b=%i c=%i microns abs" %
-                               (startPosition[0], startPosition[1], startPosition[2]), doRetry=True, tempo=5)]
+            posA, posB, posC = startPosition
+            sequence += [
+                CmdSeq('xcu_r1', "motors moveCcd a=%i b=%i c=%i microns abs" % (posA, posB, posC), doRetry=True)]
 
-        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f " % expTime, timeLim=500) for expTime in expTimes]
+        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f" % expTime, doRetry=True) for expTime in expTimes]
 
         sequence += seq_expTime
 
         for i in range(nbImage - 1):
-            sequence += [CmdSeq('xcu_r1', " motors moveCcd %s=%i microns " % (motor, step), tempo=5)]
+            sequence += [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns" % (motor, step))]
             sequence += seq_expTime
 
         return sequence
