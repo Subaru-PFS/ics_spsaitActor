@@ -23,7 +23,7 @@ def formatException(e, traceback):
 
 
 class CmdSeq(object):
-    def __init__(self, actor, cmdStr, timeLim=60, doRetry=False, tempo=1.0):
+    def __init__(self, actor, cmdStr, timeLim=600, doRetry=False, tempo=5.0):
         object.__init__(self)
         self.actor = actor
         self.cmdStr = cmdStr
@@ -50,7 +50,7 @@ class DetalignException(Exception):
         Exception.__init__(self, error)
 
 
-class ExposureException(Exception):
+class ExposeException(Exception):
     def __init__(self, error="Abort exposure requested"):
         Exception.__init__(self, error)
 
@@ -58,3 +58,8 @@ class ExposureException(Exception):
 class TestException(Exception):
     def __init__(self, error="Abort test requested"):
         Exception.__init__(self, error)
+
+
+failExposure = [CmdSeq('ccd_r1', "clearExposure "),
+                CmdSeq('ccd_r1', "disconnect controller=fee", tempo=20),
+                CmdSeq('ccd_r1', "connect controller=fee", tempo=20)]
