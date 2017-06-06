@@ -3,6 +3,7 @@
 
 import sys
 
+import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from spsaitActor.utils import threaded, formatException, CmdSeq
@@ -20,7 +21,7 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign',
-             'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [<attenuator>] [<startPosition>] [switchOff]',
+             'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [<attenuator>] [<startPosition>] [<midPosition>] [switchOff]',
              self.throughFocus),
         ]
 
@@ -33,6 +34,8 @@ class DetalignCmd(object):
                                         keys.Key("motor", types.String(), help="optional to move a single motor"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         keys.Key("startPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
+                                         The 3 motors positions are required. If it is not set the lowBound position is used. "),
+                                        keys.Key("midPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
                                          The 3 motors positions are required. If it is not set the lowBound position is used. ")
                                         )
 
@@ -51,6 +54,11 @@ class DetalignCmd(object):
         startPosition = cmdKeys['startPosition'].values if "startPosition" in cmdKeys else None
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         switchOff = True if "switchOff" in cmdKeys else False
+
+        if "midPosition" in cmdKeys:
+            midPosition = cmdKeys['midPosition'].values
+            startPosition = midPosition - np.min(midPosition) + lowBound
+            upBound -= np.max(startPosition)
 
         if "ne" in cmdKeys:
             arcLamp = "ne"
