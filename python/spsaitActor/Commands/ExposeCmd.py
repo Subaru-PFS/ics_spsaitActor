@@ -23,6 +23,7 @@ class ExposeCmd(object):
             ('expose', 'object <exptime> [<comment>]', self.doExposure),
             ('expose', 'flat <exptime> [<attenuator>] [switchOff]', self.doFlat),
             ('expose', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.doArc),
+            ('expose', 'background <exptime>', self.doBackground),
         ]
 
         # Define typed command arguments for the above commands.
@@ -230,3 +231,53 @@ class ExposeCmd(object):
             return
 
         cmd.finish("text='exposure done exptime=%.2f'" % exptime)
+
+    @threaded
+    def doBackground(self, cmd):
+        self.resetExposure()
+
+        cmdKeys = cmd.cmd.keywords
+        cmdCall = self.actor.safeCall
+        enuKeys = self.actor.models['enu']
+        ccdKeys = self.actor.models['ccd_r1']
+        dcbKeys = self.actor.models['dcb']
+
+        exptime = cmdKeys['exptime'].values[0]
+
+        expType = "arc"
+
+        try:
+            if exptime <= 0:
+                raise Exception("exptime must be positive")
+
+            [state, mode, position] = enuKeys.keyVarDict['shutters'].getValue()
+            if not (state == "IDLE" and position == "close") or self.stopExposure:
+                raise Exception("Shutters are not in position")
+
+        except Exception as e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+
+        try:
+            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=60, forUserCmd=cmd)
+
+            state = ccdKeys.keyVarDict['exposureState'].getValue()
+            if state != "integrating" or self.stopExposure:
+                raise Exception("ccd is not integrating")
+
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, forUserCmd=cmd)
+            dateobs = enuKeys.keyVarDict['dateobs'].getValue()
+            exptime = enuKeys.keyVarDict['exptime'].getValue()
+
+            if np.isnan(exptime):
+                raise Exception("Exposure did not occur as expected (interlock ?) Aborting ... ")
+
+            cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
+                    timeLim=300, forUserCmd=cmd)
+
+        except Exception as e:
+            self.actor.processSequence(self.name, cmd, failExposure)
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+
+        cmd.finish("text='arc done exptime=%.2f'" % exptime)
