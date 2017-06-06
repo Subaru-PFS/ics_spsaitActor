@@ -19,7 +19,7 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [switchOff]', self.dither),
+            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<attenuator>] [switchOff]', self.dither),
 
         ]
 
@@ -29,6 +29,7 @@ class DitherCmd(object):
                                         keys.Key("nb", types.Int(), help="Number of position"),
                                         keys.Key("shift", types.Float(), help="shift in microns/pixels"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
+                                        keys.Key("duplicate", types.Int(), help="duplicate number of flat per position(1 is default)"),
                                         )
 
     @threaded
@@ -41,8 +42,9 @@ class DitherCmd(object):
 
         nbImage = cmdKeys['nb'].values[0]
         exptime = cmdKeys['exptime'].values[0]
-        fact = 28.806323 if "pixels" in cmdKeys else 1000
-        shift = cmdKeys['shift'].values[0] / fact
+        fact = 0.034697 if "pixels" in cmdKeys else 0.001
+        shift = cmdKeys['shift'].values[0] * fact
+        duplicate = cmdKeys['duplicate'].values[0] if "attenuator" in cmdKeys else 1
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
@@ -56,7 +58,7 @@ class DitherCmd(object):
             cmd.fail("text='nbImage must be at least 1'")
             return
 
-        sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, attenCmd)
+        sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, duplicate, attenCmd)
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
@@ -71,21 +73,21 @@ class DitherCmd(object):
         else:
             cmd.finish("text='Dithering is over'")
 
-    def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime, attenCmd):
+    def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime, duplicate, attenCmd):
 
-        sequence = [CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), doRetry=True)]
+        sequence = duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), doRetry=True)]
 
         for i in range(nbImage):
             sequence += [CmdSeq('enu', "slit dither pix=-%.5f" % shift)]
-            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
+            sequence += duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
 
         sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
 
         for i in range(nbImage):
             sequence += [CmdSeq('enu', "slit dither pix=%.5f " % shift)]
-            sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
+            sequence += duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
 
         sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
-        sequence += [CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
+        sequence += duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
 
         return sequence
