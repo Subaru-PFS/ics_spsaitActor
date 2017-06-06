@@ -58,7 +58,7 @@ class CryoCmd(object):
         pressure = xcuKeys.keyVarDict['pressure'].getValue()
 
         if not (turboSpeed == 90000 and position == "Open" and controlState == "Open" and pressure < 1e-4):
-            cmd.fail("text='Can't do a pressure rise test'")
+            cmd.fail("text='pressure is too high, cant do a pressure rise test'")
             return
 
         else:
