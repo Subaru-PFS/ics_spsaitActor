@@ -22,11 +22,12 @@ class TestCmd(object):
         self.vocab = [
             ('exptes', 'flat <exptime> [<attenuator>] [switchOff]', self.test),
             ('exptes', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.test),
+            ('exptes', 'background <exptime>', self.test),
             ('exptes', '<nbias>', self.test),
             ('exptes', '<darks>', self.test),
             ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
-                         '[<attenuator>] [<startPosition>]', self.test),
-            ('dithes', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [switchOff]', self.test),
+                         '[<attenuator>] [<startPosition>] [<midPosition>]', self.test),
+            ('dithes', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [<duplicate>] [switchOff]', self.test),
             ('sequence', '', self.sequence),
         ]
 
@@ -39,11 +40,14 @@ class TestCmd(object):
                                         keys.Key("motor", types.String(), help="optional to move a single motor"),
                                         keys.Key("startPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
                                          The 3 motors positions are required. If it is not set the lowBound position is used. "),
+                                        keys.Key("midPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
+                                         The 3 motors positions are required. If it is not set the lowBound position is used. "),
                                         keys.Key("nbias", types.Int(),
                                                  help='number of biases to take'),
                                         keys.Key("darks", types.Float() * (1,),
                                                  help='list of dark times to take'),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
+                                        keys.Key("duplicate", types.Int(), help="duplicate number of flat per position(1 is default)"),
                                         )
 
     @threaded
