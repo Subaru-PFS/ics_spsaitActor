@@ -20,7 +20,7 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('adjust', 'slitalign <exptime>', self.adjust),
-            ('abort', '@(detalign|exposure|cryo|test)', self.abort),
+            ('abort', '@(detalign|exposure|cryo|test|calib)', self.abort),
         ]
 
         # Define typed command arguments for the above commands.
@@ -49,6 +49,8 @@ class TopCmd(object):
             name = "exposure"
         elif "cryo" in cmdKeys:
             name = "cryo"
+        elif "calib" in cmdKeys:
+            name = "calib"
         elif "test" in cmdKeys:
             name = "test"
 

@@ -34,7 +34,7 @@ class SpsaitActor(Actor):
         self.expTime = 1.0
         self.allThreads = {}
         self.boolStop = {}
-        self.threadedDev = ["expose", "detalign", "dither", "cryo", "test"]
+        self.threadedDev = ["expose", "detalign", "dither", "cryo", "calib", "test"]
 
         self.createThreads()
 
