@@ -3,6 +3,7 @@
 
 import sys
 
+import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from spsaitActor.utils import threaded, formatException, CmdSeq
@@ -19,7 +20,7 @@ class CalibCmd(object):
         #
         self.name = "calib"
         self.vocab = [
-            ('background', '<nb> <exptime>', self.doBackground),
+            ('background', '<nb> <exptime> [force]', self.doBackground),
             ('dark', '<ndarks> <exptime>', self.doDarks),
             ('calib', '[<nbias>] [<ndarks>] [<exptime>]', self.doBasicCalib)
         ]
@@ -29,7 +30,7 @@ class CalibCmd(object):
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("nb", types.Int(), help="Number of exposure"),
                                         keys.Key("ndarks", types.Int(), help="Number of darks"),
-                                        keys.Key("nbias", types.Int(), help="Number of darks"),
+                                        keys.Key("nbias", types.Int(), help="Number of bias"),
                                         )
 
     @threaded
@@ -41,11 +42,7 @@ class CalibCmd(object):
 
         exptime = cmdKeys['exptime'].values[0]
         nb = cmdKeys['nb'].values[0]
-
-        attenSave = dcbKeys.keyVarDict['attenuator'].getValue()
-
-        sequence = 2 * [CmdSeq('dcb', "labsphere value=0")]
-        sequence += nb * [CmdSeq('spsait', "expose exptime=%.2f" % exptime, doRetry=True)]
+        force = True if "force" in cmdKeys else False
 
         try:
             if exptime <= 0:
@@ -53,22 +50,21 @@ class CalibCmd(object):
             if nb <= 0:
                 raise Exception("nb > 0 ")
 
+            self.actor.processSequence(self.name, cmd, 2 * [CmdSeq('dcb', "labsphere value=0")])
+
+            if not force:
+                flux = dcbKeys.keyVarDict['photodiode'].getValue()
+                if np.isnan(flux) or flux > 2e-3:
+                    raise Exception("Flux is not null")
+
+            bckSeq = nb * [CmdSeq('spsait', "expose exptime=%.2f" % exptime, doRetry=True)]
+            self.actor.processSequence(self.name, cmd, bckSeq)
+
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
 
-        try:
-            self.actor.processSequence(self.name, cmd, sequence)
-
-        except Exception as e:
-            pass
-
-        self.actor.processSequence(self.name, cmd, 2 * [CmdSeq('dcb', "labsphere value=%i" % attenSave)])
-
-        if e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-        else:
-            cmd.finish("text='Background Sequence is over'")
+        cmd.finish("text='Background Sequence is over'")
 
     @threaded
     def doDarks(self, cmd):
