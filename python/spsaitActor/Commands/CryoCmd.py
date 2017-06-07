@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import sys
+from datetime import datetime as dt
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, CmdSeq, formatException, CryoException
+from spsaitActor.utils import threaded, CmdSeq, formatException, CryoException, computeRate
 
 
 class CryoCmd(object):
@@ -19,7 +20,7 @@ class CryoCmd(object):
         self.name = "cryo"
         self.vocab = [
             ('pressure_rise', '@(r0|r1) [<duration>]', self.pressureTest),
-            ('abort', 'cryo doNone', self.doSleep),
+            ('abort', 'cryo doNone', self.abortDoNone),
         ]
 
         # Define typed command arguments for the above commands.
@@ -33,7 +34,7 @@ class CryoCmd(object):
     def pressureTest(self, cmd):
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
-        found = False
+
         self.doNone = False
         duration = cmdKeys['duration'].values[0] if "duration" in cmdKeys else 30
 
@@ -49,20 +50,21 @@ class CryoCmd(object):
         xcuActor = 'xcu_%s' % arm
         xcuKeys = self.actor.models[xcuActor]
 
+        start = dt.now()
         cmdCall(actor=xcuActor, cmdStr="gatevalve status", timeLim=10, forUserCmd=cmd)
         cmdCall(actor=xcuActor, cmdStr="turbo status", timeLim=10, forUserCmd=cmd)
         cmdCall(actor=xcuActor, cmdStr="gauge status", timeLim=10, forUserCmd=cmd)
 
         turboSpeed = xcuKeys.keyVarDict['turboSpeed'].getValue()
         [word, position, controlState] = xcuKeys.keyVarDict['gatevalve'].getValue()
-        pressure = xcuKeys.keyVarDict['pressure'].getValue()
+        pressure1 = xcuKeys.keyVarDict['pressure'].getValue()
 
-        if not (turboSpeed == 90000 and position == "Open" and controlState == "Open" and pressure < 1e-4):
+        if not (turboSpeed == 90000 and position == "Open" and controlState == "Open" and pressure1 < 1e-4):
             cmd.fail("text='pressure is too high, cant do a pressure rise test'")
             return
 
         else:
-            cmd.inform("press1=%.5e" % pressure)
+            cmd.inform("press1=%.5e" % pressure1)
             cmd.inform("gatevalve=%s,%s" % (position, controlState))
 
         seqClosing, seqCheck, seqOpening = self.buildSequence(xcuActor, duration)
@@ -87,13 +89,14 @@ class CryoCmd(object):
             return
 
         try:
+            end = dt.now()
             [word, position, controlState] = xcuKeys.keyVarDict['gatevalve'].getValue()
-            pressure = xcuKeys.keyVarDict['pressure'].getValue()
+            pressure2 = xcuKeys.keyVarDict['pressure'].getValue()
 
             if not (position == "Closed" and controlState == "Closed" and turboSpeed == 90000):
                 raise Exception("Impossible to open the gatevalve !")
 
-            cmd.inform("press2=%.5e" % pressure)
+            cmd.inform("press2=%.5e" % pressure2)
             cmd.inform("gatevalve=%s,%s" % (position, controlState))
 
             self.actor.processSequence(self.name, cmd, seqOpening)
@@ -105,6 +108,7 @@ class CryoCmd(object):
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
 
+        cmd.inform("rise_rate='%.5e Torr L s-1'" % computeRate(start, end, pressure1, pressure2))
         cmd.finish("text='Pressure rising test is over'")
 
     def buildSequence(self, xcuActor, duration):
@@ -122,7 +126,7 @@ class CryoCmd(object):
 
         return seqClosing, seqCheck, seqOpening
 
-    def doSleep(self, cmd):
+    def abortDoNone(self, cmd):
         self.doNone = True
         self.actor.boolStop["cryo"] = True
 
