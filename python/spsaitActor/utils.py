@@ -39,6 +39,11 @@ class CmdSeq(object):
                 "doRetry": self.doRetry,
                 }
 
+def computeRate(start, end, pressure1, pressure2):
+
+    return 150*(pressure2- pressure1)/((end-start).total_seconds())
+
+
 
 class CryoException(Exception):
     def __init__(self, error="Abort cryo requested"):
@@ -54,6 +59,9 @@ class ExposeException(Exception):
     def __init__(self, error="Abort exposure requested"):
         Exception.__init__(self, error)
 
+class CalibException(Exception):
+    def __init__(self, error="Abort calib requested"):
+        Exception.__init__(self, error)
 
 class TestException(Exception):
     def __init__(self, error="Abort test requested"):
