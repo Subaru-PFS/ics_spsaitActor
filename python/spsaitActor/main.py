@@ -94,6 +94,7 @@ class SpsaitActor(Actor):
         cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
 
         doRetry = kwargs.pop("doRetry", None)
+        keyStop = kwargs.pop("keyStop", None)
 
         cmdVar = self.cmdr.call(**kwargs)
 
@@ -101,7 +102,7 @@ class SpsaitActor(Actor):
 
         if cmdVar.didFail:
             cmd.warn(stat)
-            if not doRetry:
+            if not doRetry or self.boolStop[keyStop]:
                 raise Exception("%s has failed" % cmdStr)
             else:
                 time.sleep(5)
@@ -115,7 +116,7 @@ class SpsaitActor(Actor):
         for cmdSeq in sequence:
             if self.boolStop[name]:
                 raise e
-            self.safeCall(**(cmdSeq.build(cmd)))
+            self.safeCall(**(cmdSeq.build(cmd, name)))
             for i in range(int(cmdSeq.tempo // ti)):
                 if self.boolStop[name]:
                     raise e

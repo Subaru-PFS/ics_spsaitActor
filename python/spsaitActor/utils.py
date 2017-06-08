@@ -31,12 +31,13 @@ class CmdSeq(object):
         self.doRetry = doRetry
         self.tempo = tempo
 
-    def build(self, cmd):
+    def build(self, cmd, keyStop):
         return {"actor": self.actor,
                 "cmdStr": self.cmdStr,
                 "forUserCmd": cmd,
                 "timeLim": self.timeLim,
                 "doRetry": self.doRetry,
+                "keyStop": keyStop,
                 }
 
 def computeRate(start, end, pressure1, pressure2):
