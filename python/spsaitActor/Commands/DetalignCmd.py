@@ -92,13 +92,10 @@ class DetalignCmd(object):
         else:
             cmd.finish("text='Through Focus is over'")
 
-    def buildThroughFocus(self, arcLamp, attenCmd, nbImage, expTimes, lowBound, upBound, motor, startPosition):
+    def buildThroughFocus(self, arc, attenCmd, nbImage, expTimes, lowBound, upBound, motor, startPosition):
         step = (upBound - lowBound) / (nbImage - 1)
 
-        if arcLamp is not None:
-            sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arcLamp, attenCmd), doRetry=True)]
-        else:
-            sequence = []
+        sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
         # Number of microns must be an integer
         if startPosition is None:
             sequence += [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns abs" % (motor, lowBound), doRetry=True)]

@@ -81,13 +81,8 @@ class CalibCmd(object):
             if ndarks <= 0:
                 raise Exception("ndarks > 0 ")
 
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+            sequence = ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, doRetry=True)]
 
-        sequence = ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, doRetry=True)]
-
-        try:
             self.actor.processSequence(self.name, cmd, sequence)
 
         except Exception as e:
@@ -112,14 +107,9 @@ class CalibCmd(object):
             if nbias <= 0:
                 raise Exception("nbias > 0 ")
 
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+            sequence = nbias * [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, doRetry=True)]
+            sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, doRetry=True)]
 
-        sequence = nbias * [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, doRetry=True)]
-        sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, doRetry=True)]
-
-        try:
             self.actor.processSequence(self.name, cmd, sequence)
 
         except Exception as e:
