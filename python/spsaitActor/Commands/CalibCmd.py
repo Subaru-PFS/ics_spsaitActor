@@ -154,7 +154,9 @@ class CalibCmd(object):
 
         sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
-        sequence += nb * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500+exptime, doRetry=True, tempo=delay)]
+        sequence += (nb-1) * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500+exptime, doRetry=True, tempo=delay)]
+
+        sequence += [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500+exptime, doRetry=True)]
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)

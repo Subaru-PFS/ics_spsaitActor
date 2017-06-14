@@ -28,7 +28,8 @@ class TestCmd(object):
             ('dithes', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [<duplicate>] [switchOff]', self.test),
             ('backtes', '<nb> <exptime> [force]', self.test),
             ('darktes', '<ndarks> <exptime>', self.test),
-            ('calibtes', '[<nbias>] [<ndarks>] [<exptime>]', self.test)
+            ('calibtes', '[<nbias>] [<ndarks>] [<exptime>]', self.test),
+            ('stabtest', '<exptime> <nb> <delay> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.test)
         ]
 
         # Define typed command arguments for the above commands.
