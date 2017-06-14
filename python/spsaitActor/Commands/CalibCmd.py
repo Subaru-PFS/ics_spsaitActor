@@ -22,7 +22,8 @@ class CalibCmd(object):
         self.vocab = [
             ('background', '<nb> <exptime> [force]', self.doBackground),
             ('dark', '<ndarks> <exptime>', self.doDarks),
-            ('calib', '[<nbias>] [<ndarks>] [<exptime>]', self.doBasicCalib)
+            ('calib', '[<nbias>] [<ndarks>] [<exptime>]', self.doBasicCalib),
+            ('imstab', '<exptime> <nb> <delay> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.doImstab)
         ]
 
         # Define typed command arguments for the above commands.
@@ -31,6 +32,7 @@ class CalibCmd(object):
                                         keys.Key("nb", types.Int(), help="Number of exposure"),
                                         keys.Key("ndarks", types.Int(), help="Number of darks"),
                                         keys.Key("nbias", types.Int(), help="Number of bias"),
+                                        keys.Key("delay", types.Int(), help="delay in sec"),
                                         )
 
     @threaded
@@ -125,3 +127,54 @@ class CalibCmd(object):
             return
 
         cmd.finish("text='Basic calib Sequence is over'")
+
+    @threaded
+    def doImstab(self, cmd):
+        cmdKeys = cmd.cmd.keywords
+        cmdCall = self.actor.safeCall
+        e = False
+
+        exptime = cmdKeys['exptime'].values[0]
+        nb = cmdKeys['nb'].values[0]
+        delay = cmdKeys['delay'].values[0]
+        switchOff = True if "switchOff" in cmdKeys else False
+        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
+
+        if "ne" in cmdKeys:
+            arc = "ne"
+        elif "hgar" in cmdKeys:
+            arc = "hgar"
+        elif "xenon" in cmdKeys:
+            arc = "xenon"
+        else:
+            arc = None
+
+        try:
+            if exptime <= 0:
+                raise Exception("exptime must be > 0")
+            if nb <= 1:
+                raise Exception("nb > 1 ")
+            if delay <= 0:
+                raise Exception("delay > 0 ")
+
+        except Exception as e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+
+        sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
+
+        sequence += nb * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, doRetry=True, tempo=delay)]
+
+        try:
+            self.actor.processSequence(self.name, cmd, sequence)
+
+        except Exception as e:
+            pass
+
+        if arc is not None and switchOff:
+            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arc, timeLim=60, forUserCmd=cmd)
+
+        if e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+        else:
+            cmd.finish("text='Image stability Sequence is over'")
