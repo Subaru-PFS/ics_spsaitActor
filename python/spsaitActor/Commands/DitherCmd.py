@@ -19,7 +19,8 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<attenuator>] [switchOff]', self.dither),
+            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<attenuator>] [switchOff]',
+             self.dither),
 
         ]
 
@@ -29,7 +30,8 @@ class DitherCmd(object):
                                         keys.Key("nb", types.Int(), help="Number of position"),
                                         keys.Key("shift", types.Float(), help="shift in microns/pixels"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
-                                        keys.Key("duplicate", types.Int(), help="duplicate number of flat per position(1 is default)"),
+                                        keys.Key("duplicate", types.Int(),
+                                                 help="duplicate number of flat per position(1 is default)"),
                                         )
 
     @threaded
@@ -75,19 +77,23 @@ class DitherCmd(object):
 
     def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime, duplicate, attenCmd):
 
-        sequence = duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), doRetry=True)]
+        sequence = duplicate * [
+            CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), timeLim=exptime + 500, doRetry=True)]
 
         for i in range(nbImage):
             sequence += [CmdSeq('enu', "slit dither pix=-%.5f" % shift)]
-            sequence += duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
+            sequence += duplicate * [
+                CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
 
         sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
 
         for i in range(nbImage):
             sequence += [CmdSeq('enu', "slit dither pix=%.5f " % shift)]
-            sequence += duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
+            sequence += duplicate * [
+                CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
 
         sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
-        sequence += duplicate*[CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, doRetry=True)]
+        sequence += duplicate * [
+            CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
 
         return sequence

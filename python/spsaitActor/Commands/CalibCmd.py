@@ -33,6 +33,7 @@ class CalibCmd(object):
                                         keys.Key("ndarks", types.Int(), help="Number of darks"),
                                         keys.Key("nbias", types.Int(), help="Number of bias"),
                                         keys.Key("delay", types.Int(), help="delay in sec"),
+                                        keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         )
 
     @threaded
@@ -59,7 +60,7 @@ class CalibCmd(object):
                 if np.isnan(flux) or flux > 2e-3:
                     raise Exception("Flux is not null")
 
-            bckSeq = nb * [CmdSeq('spsait', "expose exptime=%.2f" % exptime, doRetry=True)]
+            bckSeq = nb * [CmdSeq('spsait', "expose exptime=%.2f" % exptime, timeLim=exptime+500, doRetry=True)]
             self.actor.processSequence(self.name, cmd, bckSeq)
 
         except Exception as e:
@@ -81,7 +82,7 @@ class CalibCmd(object):
             if ndarks <= 0:
                 raise Exception("ndarks > 0 ")
 
-            sequence = ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, doRetry=True)]
+            sequence = ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime+500, doRetry=True)]
 
             self.actor.processSequence(self.name, cmd, sequence)
 
@@ -108,7 +109,7 @@ class CalibCmd(object):
                 raise Exception("nbias > 0 ")
 
             sequence = nbias * [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, doRetry=True)]
-            sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, doRetry=True)]
+            sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime+500, doRetry=True)]
 
             self.actor.processSequence(self.name, cmd, sequence)
 
@@ -153,7 +154,7 @@ class CalibCmd(object):
 
         sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
-        sequence += nb * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, doRetry=True, tempo=delay)]
+        sequence += nb * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500+exptime, doRetry=True, tempo=delay)]
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)

@@ -92,7 +92,7 @@ class ExposeCmd(object):
             if state != "integrating" or self.stopExposure:
                 raise Exception("ccd is not integrating")
 
-            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, forUserCmd=cmd)
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime+60, forUserCmd=cmd)
             dateobs = enuKeys.keyVarDict['dateobs'].getValue()
             exptime = enuKeys.keyVarDict['exptime'].getValue()
 
@@ -155,7 +155,7 @@ class ExposeCmd(object):
             if state != "integrating" or self.stopExposure:
                 raise Exception("ccd is not integrating")
 
-            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, forUserCmd=cmd)
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime+60, forUserCmd=cmd)
             dateobs = enuKeys.keyVarDict['dateobs'].getValue()
             exptime = enuKeys.keyVarDict['exptime'].getValue()
 
@@ -209,7 +209,7 @@ class ExposeCmd(object):
             if state != "integrating" or self.stopExposure:
                 raise Exception("ccd is not integrating")
 
-            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, forUserCmd=cmd)
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime+60, forUserCmd=cmd)
             dateobs = enuKeys.keyVarDict['dateobs'].getValue()
             exptime = enuKeys.keyVarDict['exptime'].getValue()
 

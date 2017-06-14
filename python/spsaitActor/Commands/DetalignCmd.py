@@ -58,7 +58,7 @@ class DetalignCmd(object):
         if "midPosition" in cmdKeys:
             midPosition = cmdKeys['midPosition'].values
             startPosition = midPosition - np.min(midPosition) + lowBound
-            upBound -= np.max(startPosition)
+            upBound -= (np.max(midPosition) - np.min(midPosition))
 
         if "ne" in cmdKeys:
             arcLamp = "ne"
@@ -104,7 +104,7 @@ class DetalignCmd(object):
             sequence += [
                 CmdSeq('xcu_r1', "motors moveCcd a=%i b=%i c=%i microns abs" % (posA, posB, posC), doRetry=True)]
 
-        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f" % expTime, doRetry=True) for expTime in expTimes]
+        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f" % expTime, timeLim=500+expTime, doRetry=True) for expTime in expTimes]
 
         sequence += seq_expTime
 
