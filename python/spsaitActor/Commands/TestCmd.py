@@ -21,15 +21,15 @@ class TestCmd(object):
         self.name = "test"
         self.vocab = [
             ('exptes', 'flat <exptime> [<attenuator>] [switchOff]', self.test),
-            ('exptes', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.test),
+            ('exptes', 'arc <exptime> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.test),
             ('exptes', '<nbias>', self.test),
-            ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [switchOff] '
+            ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(neon|hgar|xenon)] [switchOff] '
                          '[<attenuator>] [<startPosition>] [<midPosition>]', self.test),
             ('dithes', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [<duplicate>] [switchOff]', self.test),
             ('backtes', '<nb> <exptime> [force]', self.test),
             ('darktes', '<ndarks> <exptime>', self.test),
             ('calibtes', '[<nbias>] [<ndarks>] [<exptime>]', self.test),
-            ('stabtest', '<exptime> <nb> <delay> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.test)
+            ('stabtest', '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.test)
         ]
 
         # Define typed command arguments for the above commands.

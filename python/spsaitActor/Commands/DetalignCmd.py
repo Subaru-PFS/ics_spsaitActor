@@ -21,7 +21,7 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign',
-             'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(ne|hgar|xenon)] [<attenuator>] [<startPosition>] [<midPosition>] [switchOff]',
+             'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(neon|hgar|xenon)] [<attenuator>] [<startPosition>] [<midPosition>] [switchOff]',
              self.throughFocus),
         ]
 
@@ -60,8 +60,8 @@ class DetalignCmd(object):
             startPosition = midPosition - np.min(midPosition) + lowBound
             upBound -= (np.max(midPosition) - np.min(midPosition))
 
-        if "ne" in cmdKeys:
-            arcLamp = "ne"
+        if "neon" in cmdKeys:
+            arcLamp = "neon"
         elif "hgar" in cmdKeys:
             arcLamp = "hgar"
         elif "xenon" in cmdKeys:
@@ -86,7 +86,7 @@ class DetalignCmd(object):
             pass
 
         if arcLamp is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="%s off" % arcLamp, forUserCmd=cmd)
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
         else:
@@ -95,7 +95,7 @@ class DetalignCmd(object):
     def buildThroughFocus(self, arc, attenCmd, nbImage, expTimes, lowBound, upBound, motor, startPosition):
         step = (upBound - lowBound) / (nbImage - 1)
 
-        sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
+        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
         # Number of microns must be an integer
         if startPosition is None:
             sequence += [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns abs" % (motor, lowBound), doRetry=True)]

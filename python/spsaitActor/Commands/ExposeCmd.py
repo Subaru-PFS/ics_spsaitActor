@@ -22,7 +22,7 @@ class ExposeCmd(object):
         self.vocab = [
             ('expose', '[object] <exptime> [<comment>]', self.doExposure),
             ('expose', 'flat <exptime> [<attenuator>] [switchOff]', self.doFlat),
-            ('expose', 'arc <exptime> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.doArc),
+            ('expose', 'arc <exptime> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.doArc),
         ]
 
         # Define typed command arguments for the above commands.
@@ -56,8 +56,8 @@ class ExposeCmd(object):
 
         expType = "arc"
 
-        if "ne" in cmdKeys:
-            arcLamp = "ne"
+        if "neon" in cmdKeys:
+            arcLamp = "neon"
         elif "hgar" in cmdKeys:
             arcLamp = "hgar"
         elif "xenon" in cmdKeys:
@@ -74,7 +74,7 @@ class ExposeCmd(object):
                 raise Exception("Shutters are not in position")
 
             if arcLamp is not None:
-                cmdCall(actor='dcb', cmdStr="switch arc=%s %s" % (arcLamp, attenCmd), timeLim=300, forUserCmd=cmd)
+                cmdCall(actor='dcb', cmdStr="%s on %s" % (arcLamp, attenCmd), timeLim=300, forUserCmd=cmd)
 
             flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
@@ -106,7 +106,7 @@ class ExposeCmd(object):
             self.actor.processSequence(self.name, cmd, failExposure)
 
         if arcLamp is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arcLamp, timeLim=60, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="%s off" % arcLamp, timeLim=60, forUserCmd=cmd)
 
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
@@ -137,7 +137,7 @@ class ExposeCmd(object):
             if not (state == "IDLE" and position == "close") or self.stopExposure:
                 raise Exception("shutters not in position")
 
-            cmdCall(actor='dcb', cmdStr="switch arc=halogen %s" % attenCmd, timeLim=300, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="halogen on %s" % attenCmd, timeLim=300, forUserCmd=cmd)
 
             flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
@@ -169,7 +169,7 @@ class ExposeCmd(object):
             self.actor.processSequence(self.name, cmd, failExposure)
 
         if switchOff:
-            cmdCall(actor='dcb', cmdStr="labsphere switch off", timeLim=60, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="halogen off", timeLim=60, forUserCmd=cmd)
 
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))

@@ -68,7 +68,7 @@ class DitherCmd(object):
             pass
 
         if switchOff:
-            cmdCall(actor='dcb', cmdStr="labsphere switch off", forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="halogen off", forUserCmd=cmd)
 
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))

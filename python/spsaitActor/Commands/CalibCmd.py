@@ -23,7 +23,7 @@ class CalibCmd(object):
             ('background', '<nb> <exptime> [force]', self.doBackground),
             ('dark', '<ndarks> <exptime>', self.doDarks),
             ('calib', '[<nbias>] [<ndarks>] [<exptime>]', self.doBasicCalib),
-            ('imstab', '<exptime> <nb> <delay> [@(ne|hgar|xenon)] [<attenuator>] [switchOff]', self.doImstab)
+            ('imstab', '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.doImstab)
         ]
 
         # Define typed command arguments for the above commands.
@@ -53,7 +53,7 @@ class CalibCmd(object):
             if nb <= 0:
                 raise Exception("nb > 0 ")
 
-            self.actor.processSequence(self.name, cmd, 2 * [CmdSeq('dcb', "labsphere value=0")])
+            self.actor.processSequence(self.name, cmd, 2 * [CmdSeq('dcb', "labsphere attenuator=0")])
 
             if not force:
                 flux = dcbKeys.keyVarDict['photodiode'].getValue()
@@ -131,8 +131,8 @@ class CalibCmd(object):
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
-        if "ne" in cmdKeys:
-            arc = "ne"
+        if "neon" in cmdKeys:
+            arc = "neon"
         elif "hgar" in cmdKeys:
             arc = "hgar"
         elif "xenon" in cmdKeys:
@@ -152,7 +152,7 @@ class CalibCmd(object):
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
 
-        sequence = [CmdSeq('dcb', "switch arc=%s %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
+        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
         sequence += (nb-1) * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500+exptime, doRetry=True, tempo=delay)]
 
@@ -165,7 +165,7 @@ class CalibCmd(object):
             pass
 
         if arc is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="aten switch off channel=%s" % arc, timeLim=60, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
 
         if e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
