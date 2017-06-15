@@ -108,7 +108,7 @@ class CalibCmd(object):
             if nbias <= 0:
                 raise Exception("nbias > 0 ")
 
-            sequence = nbias * [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, doRetry=True)]
+            sequence = [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, doRetry=True)]
             sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime+500, doRetry=True)]
 
             self.actor.processSequence(self.name, cmd, sequence)
