@@ -46,7 +46,7 @@ class DitherCmd(object):
         exptime = cmdKeys['exptime'].values[0]
         fact = 0.034697 if "pixels" in cmdKeys else 0.001
         shift = cmdKeys['shift'].values[0] * fact
-        duplicate = cmdKeys['duplicate'].values[0] if "attenuator" in cmdKeys else 1
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 

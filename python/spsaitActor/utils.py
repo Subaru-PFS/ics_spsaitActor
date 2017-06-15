@@ -50,11 +50,13 @@ class CryoException(Exception):
     def __init__(self, error="Abort cryo requested"):
         Exception.__init__(self, error)
 
-
 class DetalignException(Exception):
     def __init__(self, error="Abort detalign requested"):
         Exception.__init__(self, error)
 
+class DitherException(Exception):
+    def __init__(self, error="Abort dither requested"):
+        Exception.__init__(self, error)
 
 class ExposeException(Exception):
     def __init__(self, error="Abort exposure requested"):
