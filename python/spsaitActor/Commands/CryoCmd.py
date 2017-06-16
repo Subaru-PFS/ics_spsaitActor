@@ -59,7 +59,7 @@ class CryoCmd(object):
         [word, position, controlState] = xcuKeys.keyVarDict['gatevalve'].getValue()
         pressure1 = xcuKeys.keyVarDict['pressure'].getValue()
 
-        if not (turboSpeed == 90000 and position == "Open" and controlState == "Open" and pressure1 < 1e-4):
+        if not (89900 < turboSpeed < 90100 and position == "Open" and controlState == "Open" and pressure1 < 5e-3):
             cmd.fail("text='pressure is too high, cant do a pressure rise test'")
             return
 
@@ -93,7 +93,7 @@ class CryoCmd(object):
             [word, position, controlState] = xcuKeys.keyVarDict['gatevalve'].getValue()
             pressure2 = xcuKeys.keyVarDict['pressure'].getValue()
 
-            if not (position == "Closed" and controlState == "Closed" and turboSpeed == 90000):
+            if not (position == "Closed" and controlState == "Closed" and 89900 < turboSpeed < 90100):
                 raise Exception("Impossible to open the gatevalve !")
 
             cmd.inform("press2=%.5e" % pressure2)
