@@ -23,7 +23,8 @@ class CalibCmd(object):
             ('background', '<nb> <exptime> [force]', self.doBackground),
             ('dark', '<ndarks> <exptime>', self.doDarks),
             ('calib', '[<nbias>] [<ndarks>] [<exptime>]', self.doBasicCalib),
-            ('imstab', '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.doImstab)
+            ('imstab', '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [<attenuator>] [<duplicate>] [switchOff]',
+             self.doImstab)
         ]
 
         # Define typed command arguments for the above commands.
@@ -34,6 +35,8 @@ class CalibCmd(object):
                                         keys.Key("nbias", types.Int(), help="Number of bias"),
                                         keys.Key("delay", types.Int(), help="delay in sec"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
+                                        keys.Key("duplicate", types.Int(),
+                                                 help="duplicate number of exposure per tempo(1 is default)"),
                                         )
 
     @threaded
@@ -60,7 +63,7 @@ class CalibCmd(object):
                 if np.isnan(flux) or flux > 2e-3:
                     raise Exception("Flux is not null")
 
-            bckSeq = nb * [CmdSeq('spsait', "expose exptime=%.2f" % exptime, timeLim=exptime+500, doRetry=True)]
+            bckSeq = nb * [CmdSeq('spsait', "expose exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
             self.actor.processSequence(self.name, cmd, bckSeq)
 
         except Exception as e:
@@ -82,7 +85,7 @@ class CalibCmd(object):
             if ndarks <= 0:
                 raise Exception("ndarks > 0 ")
 
-            sequence = ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime+500, doRetry=True)]
+            sequence = ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
 
             self.actor.processSequence(self.name, cmd, sequence)
 
@@ -108,8 +111,8 @@ class CalibCmd(object):
             if nbias <= 0:
                 raise Exception("nbias > 0 ")
 
-            sequence = [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, timeLim=nbias*180, doRetry=True)]
-            sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime+500, doRetry=True)]
+            sequence = [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, timeLim=nbias * 180, doRetry=True)]
+            sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
 
             self.actor.processSequence(self.name, cmd, sequence)
 
@@ -130,6 +133,7 @@ class CalibCmd(object):
         delay = cmdKeys['delay'].values[0]
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         if "neon" in cmdKeys:
             arc = "neon"
@@ -147,6 +151,8 @@ class CalibCmd(object):
                 raise Exception("nb > 1 ")
             if delay <= 0:
                 raise Exception("delay > 0 ")
+            if duplicate <= 0:
+                raise Exception("duplicate > 0 ")
 
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
@@ -154,9 +160,15 @@ class CalibCmd(object):
 
         sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
-        sequence += (nb-1) * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500+exptime, doRetry=True, tempo=delay)]
+        acquisition = (duplicate - 1) * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500 + exptime,
+                                                doRetry=True)]
+        acquisition += [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500 + exptime,
+                               doRetry=True, tempo=delay)]
 
-        sequence += [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500+exptime, doRetry=True)]
+        sequence += (nb - 1) * acquisition
+
+        sequence += duplicate * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500 + exptime,
+                                        doRetry=True)]
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
