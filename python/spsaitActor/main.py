@@ -133,11 +133,11 @@ def main():
                         help='configuration file to use')
     parser.add_argument('--logLevel', default=logging.INFO, type=int, nargs='?',
                         help='logging level')
-    parser.add_argument('--name', default='enu', type=str, nargs='?',
+    parser.add_argument('--name', default='spsait', type=str, nargs='?',
                         help='identity')
     args = parser.parse_args()
 
-    theActor = SpsaitActor('spsait',
+    theActor = SpsaitActor(args.name
                            productName='spsaitActor',
                            configFile=args.config,
                            logLevel=args.logLevel)
