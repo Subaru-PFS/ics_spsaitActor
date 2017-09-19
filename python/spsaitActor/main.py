@@ -4,6 +4,7 @@ import ConfigParser
 import argparse
 import logging
 import time
+from functools import partial
 
 import spsaitActor.utils as utils
 from actorcore.Actor import Actor
@@ -16,12 +17,22 @@ class SpsaitActor(Actor):
     def __init__(self, name, productName=None, configFile=None, logLevel=logging.INFO):
         # This sets up the connections to/from the hub, the logger, and the twisted reactor.
         #
+        self.name = name
+        ccd = "ccd"
+        xcu = "xcu"
+        arms = ['blue', 'red']
+
+        self.ccds = ['%s_%s%i' % (ccd, cam[0], self.specId) for cam in arms]
+        self.xcus = ['%s_%s%i' % (xcu, cam[0], self.specId) for cam in arms]
+
+        self.arm2ccd = dict([(arm, ccd) for arm, ccd in zip(arms, self.ccds)])
+        self.ccd2arm = dict([(ccd, arm) for arm, ccd in zip(arms, self.ccds)])
+
         Actor.__init__(self,
                        name,
                        productName=productName,
                        configFile=configFile,
-                       modelNames=['ccd_r1', 'xcu_r1', 'xcu_r0', 'enu', 'dcb'],
-                       )
+                       modelNames=['enu', 'dcb'] + self.xcus + self.ccds)
 
         self.logger.setLevel(logLevel)
 
@@ -34,9 +45,40 @@ class SpsaitActor(Actor):
         self.expTime = 1.0
         self.allThreads = {}
         self.boolStop = {}
-        self.threadedDev = ["expose", "detalign", "dither", "cryo", "calib", "test"]
+        self.ccdState = {}
+        self.threadedDev = ["expose", "detalign", "dither", "cryo", "calib", "test"] + self.ccds
 
         self.createThreads()
+        self.attachCallbacks()
+
+    @property
+    def specId(self):
+        return int(self.name.split('_sm')[-1])
+
+    @property
+    def ccdDict(self):
+        return dict([(key, (bool, value)) for key, (bool, value) in self.ccdState.iteritems() if bool])
+
+    def checkState(self, state):
+        for key, (bool, value) in self.ccdState.iteritems():
+            if bool and value != state:
+                return False
+        return True
+
+    def attachCallbacks(self):
+        for ccd in self.ccds:
+            ccdKeys = self.models[ccd]
+            ccdKeys.keyVarDict['exposureState'].addCallback(partial(self.exposureState, ccd))
+
+    def exposureState(self, ccd, kwargs):
+        ccdKeys = self.models[ccd]
+        try:
+            state = ccdKeys.keyVarDict['exposureState'].getValue()
+        except ValueError:
+            state = None
+
+        bool = self.ccdState[ccd][0] if ccd in self.ccdState.iterkeys() else True
+        self.ccdState[ccd] = bool, state
 
     def createThreads(self):
         for name in self.threadedDev:
@@ -108,10 +150,25 @@ class SpsaitActor(Actor):
                 time.sleep(5)
                 self.safeCall(**kwargs)
 
+    def operCcd(self, kwargs):
+
+        cmd = kwargs["forUserCmd"]
+        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.iterkeys() else kwargs["timeLim"]
+        ccd = kwargs["actor"]
+
+        cmdVar = self.cmdr.call(**kwargs)
+        stat = cmdVar.lastReply.canonical().split(" ", 4)[-1]
+
+        if cmdVar.didFail:
+            cmd.warn(stat)
+            self.ccdState[ccd] = False, "didFail"
+            self.processSequence(ccd, cmd, utils.FailExposure(ccd))
+
     def processSequence(self, name, cmd, sequence):
         ti = 0.2
         self.boolStop[name] = False
-        e = getattr(utils, "%sException" % name.capitalize())
+
+        e = Exception("%s stop requested" % name.capitalize())
 
         for cmdSeq in sequence:
             if self.boolStop[name]:
@@ -137,7 +194,7 @@ def main():
                         help='identity')
     args = parser.parse_args()
 
-    theActor = SpsaitActor(args.name
+    theActor = SpsaitActor(args.name,
                            productName='spsaitActor',
                            configFile=args.config,
                            logLevel=args.logLevel)

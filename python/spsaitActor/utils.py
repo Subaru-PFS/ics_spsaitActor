@@ -40,37 +40,44 @@ class CmdSeq(object):
                 "keyStop": keyStop,
                 }
 
+
 def computeRate(start, end, pressure1, pressure2):
-
-    return 150*(pressure2- pressure1)/((end-start).total_seconds())
-
+    return 150 * (pressure2 - pressure1) / ((end - start).total_seconds())
 
 
 class CryoException(Exception):
     def __init__(self, error="Abort cryo requested"):
         Exception.__init__(self, error)
 
+
 class DetalignException(Exception):
     def __init__(self, error="Abort detalign requested"):
         Exception.__init__(self, error)
+
 
 class DitherException(Exception):
     def __init__(self, error="Abort dither requested"):
         Exception.__init__(self, error)
 
+
 class ExposeException(Exception):
     def __init__(self, error="Abort exposure requested"):
         Exception.__init__(self, error)
 
+
 class CalibException(Exception):
     def __init__(self, error="Abort calib requested"):
         Exception.__init__(self, error)
+
 
 class TestException(Exception):
     def __init__(self, error="Abort test requested"):
         Exception.__init__(self, error)
 
 
-failExposure = [CmdSeq('ccd_r1', "clearExposure"),
-                CmdSeq('ccd_r1', "disconnect controller=fee", tempo=20),
-                CmdSeq('ccd_r1', "connect controller=fee", tempo=20)]
+class FailExposure(list):
+    def __init__(self, ccd):
+        list.__init__(self)
+        self.extend([CmdSeq(ccd, "clearExposure"),
+                     CmdSeq(ccd, "disconnect controller=fee", tempo=10),
+                     CmdSeq(ccd, "connect controller=fee", tempo=5)])

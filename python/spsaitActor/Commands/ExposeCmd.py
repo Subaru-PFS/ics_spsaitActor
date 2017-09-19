@@ -2,11 +2,13 @@
 
 
 import sys
+import time
+from functools import partial
 
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException, failExposure
+from spsaitActor.utils import threaded, formatException, FailExposure
 
 
 class ExposeCmd(object):
@@ -20,7 +22,7 @@ class ExposeCmd(object):
         #
         self.name = "expose"
         self.vocab = [
-            ('expose', '[object] <exptime> [<comment>]', self.doExposure),
+            ('expose', '[object] <exptime> [<comment>] [@(blue|red)]', self.doExposure),
             ('expose', 'flat <exptime> [<attenuator>] [switchOff]', self.doFlat),
             ('expose', 'arc <exptime> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.doArc),
         ]
@@ -37,6 +39,7 @@ class ExposeCmd(object):
         return self.actor.boolStop[self.name]
 
     def resetExposure(self):
+        self.actor.ccdState = {}
         self.actor.boolStop[self.name] = False
 
     @threaded
@@ -92,7 +95,7 @@ class ExposeCmd(object):
             if state != "integrating" or self.stopExposure:
                 raise Exception("ccd is not integrating")
 
-            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime+60, forUserCmd=cmd)
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime + 60, forUserCmd=cmd)
             dateobs = enuKeys.keyVarDict['dateobs'].getValue()
             exptime = enuKeys.keyVarDict['exptime'].getValue()
 
@@ -103,7 +106,7 @@ class ExposeCmd(object):
                     timeLim=300, forUserCmd=cmd)
 
         except Exception as e:
-            self.actor.processSequence(self.name, cmd, failExposure)
+            self.actor.processSequence(self.name, cmd, FailExposure('ccd_r1'))
 
         if arcLamp is not None and switchOff:
             cmdCall(actor='dcb', cmdStr="%s off" % arcLamp, timeLim=60, forUserCmd=cmd)
@@ -155,7 +158,7 @@ class ExposeCmd(object):
             if state != "integrating" or self.stopExposure:
                 raise Exception("ccd is not integrating")
 
-            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime+60, forUserCmd=cmd)
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime + 60, forUserCmd=cmd)
             dateobs = enuKeys.keyVarDict['dateobs'].getValue()
             exptime = enuKeys.keyVarDict['exptime'].getValue()
 
@@ -166,7 +169,7 @@ class ExposeCmd(object):
                     timeLim=300, forUserCmd=cmd)
 
         except Exception as e:
-            self.actor.processSequence(self.name, cmd, failExposure)
+            self.actor.processSequence(self.name, cmd, FailExposure('ccd_r1'))
 
         if switchOff:
             cmdCall(actor='dcb', cmdStr="halogen off", timeLim=60, forUserCmd=cmd)
@@ -183,11 +186,12 @@ class ExposeCmd(object):
         cmdCall = self.actor.safeCall
         cmdKeys = cmd.cmd.keywords
         enuKeys = self.actor.models['enu']
-        ccdKeys = self.actor.models['ccd_r1']
+        arms = ['blue', 'red']
 
+        arms = arms[1:] if 'red' in cmdKeys else arms
+        arms = arms[:1] if 'blue' in cmdKeys else arms
+        shutters = 'red' if 'red' in cmdKeys else ''
         exptime = cmdKeys['exptime'].values[0]
-        comment = "comment='%s'" % cmdKeys['comment'].values[0] if "comment" in cmdKeys else ""
-
         expType = "object" if "object" in cmdKeys else "arc"
 
         try:
@@ -203,25 +207,49 @@ class ExposeCmd(object):
             return
 
         try:
-            cmdCall(actor='ccd_r1', cmdStr="wipe", timeLim=60, forUserCmd=cmd)
+            for arm in arms:
+                ccd = self.actor.arm2ccd[arm]
+                self.actor.ccdState[ccd] = True, None
+                self.actor.allThreads[ccd].putMsg(partial(self.actor.operCcd, {'actor': ccd,
+                                                                               'cmdStr': "wipe",
+                                                                               "timeLim": 60,
+                                                                               "forUserCmd": cmd}))
 
-            state = ccdKeys.keyVarDict['exposureState'].getValue()
-            if state != "integrating" or self.stopExposure:
-                raise Exception("ccd is not integrating")
+            self.waitAndHandle(state='integrating', timeout=20)
 
-            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f" % exptime, timeLim=exptime+60, forUserCmd=cmd)
+            cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f %s" % (exptime, shutters), timeLim=exptime + 60,
+                    forUserCmd=cmd)
             dateobs = enuKeys.keyVarDict['dateobs'].getValue()
             exptime = enuKeys.keyVarDict['exptime'].getValue()
 
             if np.isnan(exptime):
-                raise Exception("Exposure did not occur as expected (interlock ?) Aborting ... ")
+                raise Exception("Shutters expose did not occur as expected (interlock ?) Aborting ... ")
 
-            cmdCall(actor='ccd_r1', cmdStr="read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs),
-                    timeLim=300, forUserCmd=cmd)
+            for ccd in self.actor.ccdDict:
+                cmdStr = "read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs)
+                self.actor.allThreads[ccd].putMsg(partial(self.actor.operCcd, {'actor': ccd,
+                                                                               'cmdStr': cmdStr,
+                                                                               'timeLim': 300,
+                                                                               'forUserCmd': cmd}))
+
+            self.waitAndHandle(state='reading', timeout=60)
+            self.waitAndHandle(state='idle', timeout=180)
 
         except Exception as e:
-            self.actor.processSequence(self.name, cmd, failExposure)
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
 
-        cmd.finish("text='exposure done exptime=%.2f'" % exptime)
+        arms = [self.actor.ccd2arm[ccd] for ccd in self.actor.ccdDict]
+        cmd.finish("text='exposure done arms=%s exptime=%.2f'" % (','.join(arms), exptime))
+
+    def waitAndHandle(self, state, timeout):
+        t0 = time.time()
+
+        while not (self.actor.checkState(state) and self.actor.ccdDict):
+
+            if (time.time() - t0) > timeout:
+                raise Exception("ccd %s timeout" % state)
+            if self.stopExposure:
+                raise Exception("ccd exposure interrupted by user")
+            if not self.actor.ccdDict:
+                raise Exception("ccd %s has failed"%state)
