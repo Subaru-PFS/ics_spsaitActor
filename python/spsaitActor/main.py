@@ -6,6 +6,7 @@ import logging
 import time
 from functools import partial
 
+import numpy as np
 import spsaitActor.utils as utils
 from actorcore.Actor import Actor
 from actorcore.QThread import QThread
@@ -59,6 +60,10 @@ class SpsaitActor(Actor):
     def ccdDict(self):
         return dict([(key, (bool, value)) for key, (bool, value) in self.ccdState.iteritems() if bool])
 
+    @property
+    def stopExposure(self):
+        return self.boolStop["expose"]
+
     def checkState(self, state):
         for key, (bool, value) in self.ccdState.iteritems():
             if bool and value != state:
@@ -87,46 +92,6 @@ class SpsaitActor(Actor):
             thread.handleTimeout = self.sleep
             self.allThreads[name] = thread
             self.boolStop[name] = False
-
-    def reloadConfiguration(self, cmd):
-        logging.info("reading config file %s", self.configFile)
-
-        try:
-            newConfig = ConfigParser.ConfigParser()
-            newConfig.read(self.configFile)
-        except Exception, e:
-            if cmd:
-                cmd.fail('text=%s' % (qstr("failed to read the configuration file, old config untouched: %s" % (e))))
-            raise
-
-        self.config = newConfig
-        cmd.inform('sections=%08x,%r' % (id(self.config),
-                                         self.config))
-
-    def statusLoop(self, controller):
-        try:
-            self.callCommand("%s status" % (controller))
-        except:
-            pass
-
-        if self.monitors[controller] > 0:
-            reactor.callLater(self.monitors[controller],
-                              self.statusLoopCB,
-                              controller)
-
-    def monitor(self, controller, period, cmd=None):
-        if controller not in self.monitors:
-            self.monitors[controller] = 0
-
-        running = self.monitors[controller] > 0
-        self.monitors[controller] = period
-
-        if (not running) and period > 0:
-            cmd.warn('text="starting %gs loop for %s"' % (self.monitors[controller],
-                                                          controller))
-            self.statusLoopCB(controller)
-        else:
-            cmd.warn('text="adjusted %s loop to %gs"' % (controller, self.monitors[controller]))
 
     def safeCall(self, **kwargs):
 
@@ -180,8 +145,100 @@ class SpsaitActor(Actor):
                 time.sleep(ti)
             time.sleep(cmdSeq.tempo % ti)
 
+    def expose(self, cmd, expType, exptime, arms):
+        enuKeys = self.models['enu']
+        cmdCall = self.safeCall
+        shutters = 'red' if ('red' in arms and 'blue' not in arms) else ''
+
+        if exptime <= 0:
+            raise Exception("exptime must be positive")
+
+        [state, mode, position] = enuKeys.keyVarDict['shutters'].getValue()
+        if not (state == "IDLE" and position == "close") or self.stopExposure:
+            raise Exception("Shutters are not in position")
+
+        for arm in arms:
+            ccd = self.arm2ccd[arm]
+            self.ccdState[ccd] = True, None
+            self.allThreads[ccd].putMsg(partial(self.operCcd, {'actor': ccd,
+                                                               'cmdStr': "wipe",
+                                                               'timeLim': 60,
+                                                               'forUserCmd': cmd}))
+
+        self.waitAndHandle(state='integrating', timeout=20)
+
+        cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f %s" % (exptime, shutters), timeLim=exptime + 60,
+                forUserCmd=cmd)
+        dateobs = enuKeys.keyVarDict['dateobs'].getValue()
+        exptime = enuKeys.keyVarDict['exptime'].getValue()
+
+        if np.isnan(exptime):
+            raise Exception("Shutters expose did not occur as expected (interlock ?) Aborting ... ")
+
+        for ccd in self.ccdDict:
+            cmdStr = "read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs)
+            self.allThreads[ccd].putMsg(partial(self.operCcd, {'actor': ccd,
+                                                               'cmdStr': cmdStr,
+                                                               'timeLim': 300,
+                                                               'forUserCmd': cmd}))
+
+        self.waitAndHandle(state='reading', timeout=60)
+        self.waitAndHandle(state='idle', timeout=180)
+
+    def waitAndHandle(self, state, timeout):
+        t0 = time.time()
+
+        while not (self.checkState(state) and self.ccdDict):
+
+            if (time.time() - t0) > timeout:
+                raise Exception("ccd %s timeout" % state)
+            if self.stopExposure:
+                raise Exception("ccd exposure interrupted by user")
+            if not self.ccdDict:
+                raise Exception("ccd %s has failed" % state)
+
     def sleep(self):
         pass
+
+    def reloadConfiguration(self, cmd):
+        logging.info("reading config file %s", self.configFile)
+
+        try:
+            newConfig = ConfigParser.ConfigParser()
+            newConfig.read(self.configFile)
+        except Exception, e:
+            if cmd:
+                cmd.fail('text=%s' % (qstr("failed to read the configuration file, old config untouched: %s" % (e))))
+            raise
+
+        self.config = newConfig
+        cmd.inform('sections=%08x,%r' % (id(self.config),
+                                         self.config))
+
+    def statusLoop(self, controller):
+        try:
+            self.callCommand("%s status" % (controller))
+        except:
+            pass
+
+        if self.monitors[controller] > 0:
+            reactor.callLater(self.monitors[controller],
+                              self.statusLoopCB,
+                              controller)
+
+    def monitor(self, controller, period, cmd=None):
+        if controller not in self.monitors:
+            self.monitors[controller] = 0
+
+        running = self.monitors[controller] > 0
+        self.monitors[controller] = period
+
+        if (not running) and period > 0:
+            cmd.warn('text="starting %gs loop for %s"' % (self.monitors[controller],
+                                                          controller))
+            self.statusLoopCB(controller)
+        else:
+            cmd.warn('text="adjusted %s loop to %gs"' % (controller, self.monitors[controller]))
 
 
 def main():
