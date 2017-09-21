@@ -2,11 +2,13 @@
 
 
 import sys
+import time
+from functools import partial
 
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException, CmdSeq
+from spsaitActor.utils import threaded, formatException
 
 
 class CalibCmd(object):
@@ -20,10 +22,12 @@ class CalibCmd(object):
         #
         self.name = "calib"
         self.vocab = [
-            ('background', '<nb> <exptime> [force]', self.doBackground),
-            ('dark', '<ndarks> <exptime>', self.doDarks),
-            ('calib', '[<nbias>] [<ndarks>] [<exptime>]', self.doBasicCalib),
-            ('imstab', '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [<attenuator>] [<duplicate>] [switchOff]',
+            ('background', '<nb> <exptime> [@(blue|red)] [force]', self.doBackground),
+            ('bias', '<nbias> [@(blue|red)]', self.doBias),
+            ('dark', '<ndarks> <exptime> [@(blue|red)]', self.doDarks),
+            ('calib', '[<nbias>] [<ndarks>] [<exptime>] [@(blue|red)]', self.doBasicCalib),
+            ('imstab',
+             '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [@(blue|red)] [<attenuator>] [<duplicate>] [switchOff]',
              self.doImstab)
         ]
 
@@ -39,10 +43,17 @@ class CalibCmd(object):
                                                  help="duplicate number of exposure per tempo(1 is default)"),
                                         )
 
+    @property
+    def controller(self):
+        try:
+            return self.actor.controllers[self.name]
+        except KeyError:
+            raise RuntimeError('%s controller is not connected.' % self.name)
+
     @threaded
     def doBackground(self, cmd):
         e = False
-
+        arm = ''
         cmdKeys = cmd.cmd.keywords
         dcbKeys = self.actor.models['dcb']
 
@@ -50,21 +61,25 @@ class CalibCmd(object):
         nb = cmdKeys['nb'].values[0]
         force = True if "force" in cmdKeys else False
 
+        arm = 'red' if 'red' in cmdKeys else arm
+        arm = 'blue' if 'blue' in cmdKeys else arm
+
         try:
             if exptime <= 0:
                 raise Exception("exptime must be > 0")
             if nb <= 0:
                 raise Exception("nb > 0 ")
 
-            self.actor.processSequence(self.name, cmd, 2 * [CmdSeq('dcb', "labsphere attenuator=0")])
+            sequence = self.controller.noLight()
+            self.actor.processSequence(self.name, cmd, sequence)
 
             if not force:
                 flux = dcbKeys.keyVarDict['photodiode'].getValue()
                 if np.isnan(flux) or flux > 2e-3:
                     raise Exception("Flux is not null")
 
-            bckSeq = nb * [CmdSeq('spsait', "expose exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
-            self.actor.processSequence(self.name, cmd, bckSeq)
+            sequence = self.controller.background(exptime, nb, arm)
+            self.actor.processSequence(self.name, cmd, sequence)
 
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
@@ -79,21 +94,61 @@ class CalibCmd(object):
         ndarks = cmdKeys['ndarks'].values[0]
         exptime = cmdKeys['exptime'].values[0]
 
+        arms = ['blue', 'red']
+        arms = arms[1:] if 'red' in cmdKeys else arms
+        arms = arms[:1] if 'blue' in cmdKeys else arms
+
+        ccds = [self.actor.arm2ccd[arm] for arm in arms]
+
         try:
             if exptime <= 0:
                 raise Exception("exptime must be > 0")
             if ndarks <= 0:
                 raise Exception("ndarks > 0 ")
+            for ccd in ccds:
+                sequence = self.controller.dark(ccd, exptime, ndarks)
+                ccdThread = self.actor.controllers[ccd]
+                ccdThread.showOn = True
+                ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
 
-            sequence = ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
-
-            self.actor.processSequence(self.name, cmd, sequence)
+            while self.actor.ccdActive:
+                time.sleep(1)
 
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
 
         cmd.finish("text='Dark Sequence is over'")
+
+    @threaded
+    def doBias(self, cmd):
+
+        cmdKeys = cmd.cmd.keywords
+        nbias = cmdKeys['nbias'].values[0]
+
+        arms = ['blue', 'red']
+        arms = arms[1:] if 'red' in cmdKeys else arms
+        arms = arms[:1] if 'blue' in cmdKeys else arms
+
+        ccds = [self.actor.arm2ccd[arm] for arm in arms]
+
+        try:
+            if nbias <= 0:
+                raise Exception("nbias > 0 ")
+            for ccd in ccds:
+                sequence = self.controller.bias(ccd, nbias)
+                ccdThread = self.actor.controllers[ccd]
+                ccdThread.showOn = True
+                ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
+
+            while self.actor.ccdActive:
+                time.sleep(1)
+
+        except Exception as e:
+            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
+            return
+
+        cmd.finish("text='Bias Sequence is over'")
 
     @threaded
     def doBasicCalib(self, cmd):
@@ -103,6 +158,12 @@ class CalibCmd(object):
         exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
         nbias = cmdKeys['nbias'].values[0] if 'nbias' in cmdKeys else 15
 
+        arms = ['blue', 'red']
+        arms = arms[1:] if 'red' in cmdKeys else arms
+        arms = arms[:1] if 'blue' in cmdKeys else arms
+
+        ccds = [self.actor.arm2ccd[arm] for arm in arms]
+
         try:
             if exptime <= 0:
                 raise Exception("exptime must be > 0")
@@ -110,11 +171,11 @@ class CalibCmd(object):
                 raise Exception("ndarks > 0 ")
             if nbias <= 0:
                 raise Exception("nbias > 0 ")
-
-            sequence = [CmdSeq("ccd_r1", "expose nbias=%i" % nbias, timeLim=nbias * 180, doRetry=True)]
-            sequence += ndarks * [CmdSeq("ccd_r1", "expose darks=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
-
-            self.actor.processSequence(self.name, cmd, sequence)
+            for ccd in ccds:
+                sequence = self.controller.calibration(ccd, nbias, ndarks, exptime)
+                ccdThread = self.actor.controllers[ccd]
+                ccdThread.showOn = True
+                ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
 
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
@@ -124,9 +185,12 @@ class CalibCmd(object):
 
     @threaded
     def doImstab(self, cmd):
+        arm = ''
+        e = False
+
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
-        e = False
+
 
         exptime = cmdKeys['exptime'].values[0]
         nb = cmdKeys['nb'].values[0]
@@ -134,6 +198,9 @@ class CalibCmd(object):
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+
+        arm = 'red' if 'red' in cmdKeys else arm
+        arm = 'blue' if 'blue' in cmdKeys else arm
 
         if "neon" in cmdKeys:
             arc = "neon"
@@ -158,28 +225,15 @@ class CalibCmd(object):
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
 
-        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
-
-        acquisition = (duplicate - 1) * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500 + exptime,
-                                                doRetry=True)]
-        acquisition += [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500 + exptime,
-                               doRetry=True, tempo=delay)]
-
-        sequence += (nb - 1) * acquisition
-
-        sequence += duplicate * [CmdSeq('spsait', "expose arc exptime=%.2f" % exptime, timeLim=500 + exptime,
-                                        doRetry=True)]
-
         try:
+            sequence = self.controller.imstability(exptime, nb, delay, arc, arm, duplicate, attenCmd)
             self.actor.processSequence(self.name, cmd, sequence)
+            msg = "text='Image stability Sequence is over'"
 
         except Exception as e:
-            pass
+            msg = "text='%s'" % formatException(e, sys.exc_info()[2])
 
         if arc is not None and switchOff:
             cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
 
-        if e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-        else:
-            cmd.finish("text='Image stability Sequence is over'")
+        cmd.fail(msg) if e else cmd.finish(msg)
