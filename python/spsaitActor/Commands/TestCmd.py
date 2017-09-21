@@ -6,7 +6,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import CmdSeq, threaded, formatException
+from spsaitActor.utils import threaded, formatException
 
 
 class TestCmd(object):
@@ -20,16 +20,16 @@ class TestCmd(object):
         #
         self.name = "test"
         self.vocab = [
-            ('exptes', 'flat <exptime> [<attenuator>] [switchOff]', self.test),
-            ('exptes', 'arc <exptime> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.test),
-            ('exptes', '<nbias>', self.test),
-            ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(neon|hgar|xenon)] [switchOff] '
-                         '[<attenuator>] [<startPosition>] [<midPosition>]', self.test),
-            ('dithes', '<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [<duplicate>] [switchOff]', self.test),
-            ('backtes', '<nb> <exptime> [force]', self.test),
-            ('darktes', '<ndarks> <exptime>', self.test),
-            ('calibtes', '[<nbias>] [<ndarks>] [<exptime>]', self.test),
-            ('stabtest', '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [<attenuator>] [switchOff]', self.test)
+            ('exptes', 'flat <exptime> [@(blue|red)] [<attenuator>] [switchOff]', self.test),
+            ('exptes', 'arc <exptime> [@(neon|hgar|xenon)] [@(blue|red)] [<attenuator>] [switchOff]', self.test),
+            ('exptes', '<nbias>  [@(blue|red)]', self.test),
+            ('tesalign', 'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(neon|hgar|xenon)] [switchOff] [<attenuator>] [<startPosition>] [<midPosition>]  [@(blue|red)]', self.test),
+            ('dithes','<nb> <exptime> <shift> [@(microns|pixels)] [<attenuator>] [<duplicate>] [switchOff]  [@(blue|red)]', self.test),
+            ('backtes', '<nb> <exptime>  [@(blue|red)] [force]', self.test),
+            ('darktes', '<ndarks> <exptime>  [@(blue|red)]', self.test),
+            ('calibtes', '[<nbias>] [<ndarks>]  [@(blue|red)] [<exptime>]', self.test),
+            ('stabtest', '<exptime> <nb> <delay> [@(neon|hgar|xenon)]  [@(blue|red)] [<attenuator>] [switchOff]', self.test)
+
         ]
 
         # Define typed command arguments for the above commands.
@@ -47,8 +47,16 @@ class TestCmd(object):
                                                  help='number of biases to take'),
                                         keys.Key("ndarks", types.Int(), help="Number of darks"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
-                                        keys.Key("duplicate", types.Int(), help="duplicate number of flat per position(1 is default)"),
+                                        keys.Key("duplicate", types.Int(),
+                                                 help="duplicate number of flat per position(1 is default)"),
                                         )
+
+    @property
+    def controller(self):
+        try:
+            return self.actor.controllers[self.name]
+        except KeyError:
+            raise RuntimeError('%s controller is not connected.' % self.name)
 
     @threaded
     def test(self, cmd):
@@ -58,17 +66,9 @@ class TestCmd(object):
 
     @threaded
     def sequence(self, cmd):
-        sequence = [CmdSeq('enu', "slit status", tempo=2),
-                    CmdSeq('enu', "rexm status", tempo=2),
-                    CmdSeq('xcu_r1', "motors status", tempo=2),
-                    CmdSeq('xcu_r1', "cooler status", tempo=2),
-                    CmdSeq('enu', "slit status", tempo=2),
-                    CmdSeq('enu', "rexm status", tempo=2),
-                    CmdSeq('xcu_r1', "motors status", tempo=2),
-                    CmdSeq('xcu_r1', "cooler status", tempo=2),
-                    ]
-
+        arm = 'red'
         try:
+            sequence = self.controller.test(arm)
             self.actor.processSequence(self.name, cmd, sequence)
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
