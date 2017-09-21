@@ -35,11 +35,18 @@ class ExposeCmd(object):
                                         )
 
     @property
-    def stopExposure(self):
+    def controller(self):
+        try:
+            return self.actor.controllers[self.name]
+        except KeyError:
+            raise RuntimeError('%s controller is not connected.' % self.name)
+
+    @property
+    def boolStop(self):
         return self.actor.boolStop[self.name]
 
     def resetExposure(self):
-        self.actor.ccdState = {}
+        self.controller.ccdState = {}
         self.actor.boolStop[self.name] = False
 
     @threaded
@@ -53,8 +60,8 @@ class ExposeCmd(object):
 
         arms = ['blue', 'red']
 
-        arms = arms[1:] if 'red' in cmdKeys else arms
         arms = arms[:1] if 'blue' in cmdKeys else arms
+        arms = arms[1:] if 'red' in cmdKeys else arms
 
         exptime = cmdKeys['exptime'].values[0]
         expType = "arc"
@@ -79,7 +86,7 @@ class ExposeCmd(object):
 
             flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
-            if np.isnan(flux) or flux == 0 or self.stopExposure:
+            if np.isnan(flux) or flux == 0 or self.boolStop:
                 raise Exception("Flux is null")
 
         except Exception as e:
@@ -87,8 +94,8 @@ class ExposeCmd(object):
             return
 
         try:
-            self.actor.expose(cmd, expType, exptime, arms)
-            arms = [self.actor.ccd2arm[ccd] for ccd in self.actor.ccdDict]
+            self.controller.expose(cmd, expType, exptime, arms)
+            arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdExposing]
             msg = "text='arc done arms=%s exptime=%.2f'" % (','.join(arms), exptime)
 
         except Exception as ex:
@@ -115,12 +122,12 @@ class ExposeCmd(object):
         expType = "object" if "object" in cmdKeys else "arc"
 
         try:
-            self.actor.expose(cmd, expType, exptime, arms)
+            self.controller.expose(cmd, expType, exptime, arms)
 
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
 
-        arms = [self.actor.ccd2arm[ccd] for ccd in self.actor.ccdDict]
+        arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdExposing]
         cmd.finish("text='exposure done arms=%s exptime=%.2f'" % (','.join(arms), exptime))
 
