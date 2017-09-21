@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
 
+import sys
 import time
 
-import numpy as np
 import opscore.protocols.keys as keys
+import opscore.protocols.keys as keys
+import opscore.protocols.types as types
 import opscore.protocols.types as types
 from astropy.io import fits
 from imgtool import centroid
 from spsaitActor.utils import threaded
+from spsaitActor.utils import threaded, formatException
 
 
 class SlitalignCmd(object):
@@ -42,81 +45,42 @@ class SlitalignCmd(object):
                                         keys.Key("W", types.Float(), help="breva W coordinate"),
                                         )
 
-    @threaded
-    def loop(self, cmd):
-        expTime = cmd.cmd.keywords['exptime'].values[0]
-        if expTime > 0:
-            self.actor.stopSequence = False
-            self.actor.expTime = expTime
-            while not self.actor.stopSequence:
-                cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="expose remote exptime=%.2f" % self.actor.expTime,
-                                              forUserCmd=cmd)
-                # cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="status", forUserCmd=cmd)
+    @property
+    def controller(self):
+        try:
+            return self.actor.controllers[self.name]
+        except KeyError:
+            raise RuntimeError('%s controller is not connected.' % self.name)
 
-                time.sleep(0.5)
-            else:
-                cmd.finish("text='Exposure Loop is over'")
-        else:
-            cmd.fail("text='exptime must be positive'")
 
     @threaded
     def throughFocus(self, cmd):
-
+        e = False
         prefix = str(cmd.cmd.keywords['prefix'].values[0])
         nbImage = cmd.cmd.keywords['nb'].values[0]
-        expTime = cmd.cmd.keywords['exptime'].values[0]
+        exptime = cmd.cmd.keywords['exptime'].values[0]
         slitLowBound = cmd.cmd.keywords['lowBound'].values[0]
         slitHighBound = cmd.cmd.keywords['highBound'].values[0]
-        enuKeys = self.actor.models['enu'].keyVarDict
+
         nbBackground = 3
-        if expTime > 0 and nbImage > 1:
-            #i = 1
-            self.actor.stopSequence = False
-            self.actor.expTime = expTime
 
-            sequence = self.buildThroughFocus(prefix, nbImage, expTime, slitLowBound, slitHighBound, enuKeys,
-                                              nbBackground)
-            for actor, cmdStr, tempo in sequence:
-                if self.actor.stopSequence:
-                    break
-                self.actor.cmdr.call(actor=actor, cmdStr=cmdStr, forUserCmd=cmd)
-                for i in range(int(tempo // 0.5)):
-                    if self.actor.stopSequence:
-                        break
-                    time.sleep(0.5)
-                time.sleep(tempo % 0.5)
-            cmd.finish("text='Through focus is over'")
-        else:
+        if exptime <= 0:
             cmd.fail("text='exptime must be positive'")
+            return
 
-    def buildThroughFocus(self, prefix, nbImage, expTime, slitLowBound, slitHighBound, enuKeys, nbBackground):
+        if nbImage <= 1:
+            cmd.fail("text='nbImage must be at least 2'")
+            return
 
-        start = [slitLowBound] + list(enuKeys["slit"])[3:]
-        end = [slitHighBound] + list(enuKeys["slit"])[3:]
-        slitStart = " ".join(["%s = %.5f" % (key, val) for key, val in zip(['X', 'Y', 'Z', 'U', 'V', 'W'], start)])
-        slitEnd = " ".join(["%s = %.5f" % (key, val) for key, val in zip(['X', 'Y', 'Z', 'U', 'V', 'W'], end)])
+        sequence = self.controller.throughfocus(prefix, nbImage, exptime, slitLowBound, slitHighBound, nbBackground)
 
-        offset = 12
-        linear = np.ones(nbImage - 1) * (slitHighBound - slitLowBound) / (nbImage - 1)
-        coeff = offset + (np.arange(nbImage - 1) - (nbImage - 1) / 2) ** 2
-        k = sum(coeff * linear) / (slitHighBound - slitLowBound)
-        coeff = coeff / k
-        step = coeff * linear
+        try:
+            self.actor.processSequence(self.name, cmd, sequence)
+            msg = "text='Through focus is over'"
+        except Exception as e:
+            msg = "text='%s'" % formatException(e, sys.exc_info()[2])
 
-        sequence = [('afl', 'switch off', 0.1), ('enu', "slit move absolute %s" % slitStart, 5)]
-        for j in range(nbBackground):
-            sequence.append(
-                ('sac', "background fname=%s_background%s.fits exptime=%.2f" % (prefix, str(j + 1).zfill(2), expTime),
-                 0.2))
-        sequence += [('afl', 'switch on', 5),
-                     ('sac', "expose fname=%s exptime=%.2f" % (self.getFilename(prefix, 1), expTime), 0.1)]
-        for i in range(nbImage - 2):
-            sequence += [('enu', "slit move relative X=%.5f" % step[i], 0.3),
-                         ('sac', "expose fname=%s exptime=%.2f" % (self.getFilename(prefix, i + 2), expTime), 0.1)]
-        sequence += [('enu', "slit move absolute %s" % slitEnd, 0.3),
-                     ('sac', "expose fname=%s exptime=%.2f" % (self.getFilename(prefix, nbImage), expTime), 0.1)]
-
-        return sequence
+        cmd.fail(msg) if e else cmd.finish(msg)
 
     def adjust(self, cmd):
         cmdKeys = cmd.cmd.keywords
@@ -156,6 +120,20 @@ class SlitalignCmd(object):
         self.actor.cmdr.call(actor='breva', cmdStr='move relo ry=%.5f rz=%.5f' % (dY, dZ), forUserCmd=cmd)
         cmd.finish("text='adjust finished'")
 
-    def getFilename(self, prefix, i):
 
-        return "%s_%s.fits" % (prefix, str(i).zfill(2))
+    @threaded
+    def loop(self, cmd):
+        expTime = cmd.cmd.keywords['exptime'].values[0]
+        if expTime > 0:
+            self.actor.stopSequence = False
+            self.actor.expTime = expTime
+            while not self.actor.stopSequence:
+                cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="expose remote exptime=%.2f" % self.actor.expTime,
+                                              forUserCmd=cmd)
+                # cmdVar = self.actor.cmdr.call(actor='sac', cmdStr="status", forUserCmd=cmd)
+
+                time.sleep(0.5)
+            else:
+                cmd.finish("text='Exposure Loop is over'")
+        else:
+            cmd.fail("text='exptime must be positive'")
