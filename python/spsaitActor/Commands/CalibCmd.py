@@ -9,6 +9,7 @@ import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from spsaitActor.utils import threaded, formatException
+import random
 
 
 class CalibCmd(object):
@@ -28,7 +29,7 @@ class CalibCmd(object):
             ('calib', '[<nbias>] [<ndarks>] [<exptime>] [@(blue|red)]', self.doBasicCalib),
             ('imstab',
              '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [@(blue|red)] [<attenuator>] [<duplicate>] [switchOff]',
-             self.doImstab)
+             self.doImstab),
         ]
 
         # Define typed command arguments for the above commands.
@@ -177,6 +178,9 @@ class CalibCmd(object):
                 ccdThread.showOn = True
                 ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
 
+            while self.actor.ccdActive:
+                time.sleep(1)
+
         except Exception as e:
             cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
             return
@@ -190,7 +194,6 @@ class CalibCmd(object):
 
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
-
 
         exptime = cmdKeys['exptime'].values[0]
         nb = cmdKeys['nb'].values[0]
