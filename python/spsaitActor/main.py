@@ -16,12 +16,13 @@ class SpsaitActor(actorcore.ICC.ICC):
         #
         self.name = name
         ccd = "ccd"
-        xcu = "xcu"
+        xcu = "testa"
         arms = ['blue', 'red']
 
         self.ccds = ['%s_%s%i' % (ccd, cam[0], self.specId) for cam in arms]
         self.xcus = ['%s_%s%i' % (xcu, cam[0], self.specId) for cam in arms]
 
+        hack = ['xcu_r1'] if self.specId == 0 else []
         self.arm2ccd = dict([(arm, ccd) for arm, ccd in zip(arms, self.ccds)])
         self.arm2xcu = dict([(arm, xcu) for arm, xcu in zip(arms, self.xcus)])
         self.ccd2arm = dict([(ccd, arm) for arm, ccd in zip(arms, self.ccds)])
@@ -30,7 +31,7 @@ class SpsaitActor(actorcore.ICC.ICC):
                                    name,
                                    productName=productName,
                                    configFile=configFile,
-                                   modelNames=['enu', 'dcb'] + self.xcus + self.ccds)
+                                   modelNames=['enu', 'dcb'] + hack + self.xcus + self.ccds)
 
         self.logger.setLevel(logLevel)
 
@@ -44,37 +45,14 @@ class SpsaitActor(actorcore.ICC.ICC):
         self.boolStop = {}
         self.createThreads()
         self.createBool()
-        self.attachCallbacks()
 
     @property
     def specId(self):
         return int(self.name.split('_sm')[-1])
 
     @property
-    def ccdState(self):
-        return self.controllers['expose'].ccdState
-
-    @property
-    def ccdActive(self):
-        return True if True in [thread.showOn for thread in [self.controllers[ccd] for ccd in self.ccds]] else False
-
-    def attachCallbacks(self):
-        for ccd in self.ccds:
-            ccdKeys = self.models[ccd]
-            ccdKeys.keyVarDict['exposureState'].addCallback(partial(self.exposureState, ccd))
-
-    def exposureState(self, ccd, kwargs):
-        ccdKeys = self.models[ccd]
-        try:
-            state = ccdKeys.keyVarDict['exposureState'].getValue()
-        except ValueError:
-            state = None
-
-        try:
-            bool = self.ccdState[ccd][0] if ccd in self.ccdState.iterkeys() else False
-            self.ccdState[ccd] = bool, state
-        except KeyError:
-            pass
+    def jobsDone(self):
+        return False if True in [thread.showOn for thread in [self.controllers[ccd] for ccd in self.ccds]] else True
 
     def createThreads(self):
         for ccd in self.ccds:
@@ -104,15 +82,16 @@ class SpsaitActor(actorcore.ICC.ICC):
         if cmdVar.didFail:
             cmd.warn(stat)
             if not doRetry or self.boolStop[keyStop]:
-                raise Exception("%s has failed" % cmdStr)
+                raise Exception("%s has failed" % cmdStr.upper())
             else:
                 time.sleep(5)
                 self.safeCall(**kwargs)
 
-    def processSequence(self, name, cmd, sequence, ti=0.2):
+    def processSequence(self, name, cmd, sequence, ti=0.2, doReset=True):
 
         e = Exception("%s stop requested" % name.capitalize())
-        self.boolStop[name] = False
+        if doReset:
+            self.boolStop[name] = False
 
         for cmdSeq in sequence:
             if self.boolStop[name]:

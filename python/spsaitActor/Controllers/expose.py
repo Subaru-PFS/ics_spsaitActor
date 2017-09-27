@@ -7,6 +7,19 @@ import spsaitActor.utils as utils
 from actorcore.QThread import QThread
 
 
+class CcdStatus(object):
+    def __init__(self):
+        object.__init__(self)
+        self.activated = False
+        self.state = None
+
+    def reached(self, state):
+        if self.activated and self.state != state:
+            return False
+        else:
+            return True
+
+
 class expose(QThread):
     def __init__(self, actor, name, loglevel=logging.DEBUG):
         """This sets up the connections to/from the hub, the logger, and the twisted reactor.
@@ -17,12 +30,32 @@ class expose(QThread):
         QThread.__init__(self, actor, name, timeout=2)
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
-        self.ccdState = {}
-        self.boolStop = False
+        self.ccdStatus = {}
+        self.attachCallbacks()
 
     @property
-    def ccdExposing(self):
-        return dict([(key, (bool, value)) for key, (bool, value) in self.ccdState.iteritems() if bool])
+    def boolStop(self):
+        return self.actor.boolStop[self.name]
+
+    @property
+    def ccdActive(self):
+        return dict([(key, ccdstatus) for key, ccdstatus in self.ccdStatus.iteritems() if ccdstatus.activated])
+
+    def attachCallbacks(self):
+        for ccd in self.actor.ccds:
+            self.ccdStatus[ccd] = CcdStatus()
+            ccdKeys = self.actor.models[ccd]
+            ccdKeys.keyVarDict['exposureState'].addCallback(self.exposureState)
+
+    def exposureState(self, keyvar):
+
+        try:
+            state = keyvar.getValue()
+        except ValueError:
+            state = None
+
+        ccd = keyvar.actor
+        self.ccdStatus[ccd].state = state
 
     def operCcd(self, kwargs):
 
@@ -35,7 +68,7 @@ class expose(QThread):
 
         if cmdVar.didFail:
             cmd.warn(stat)
-            self.ccdState[ccd] = False, "didFail"
+            self.ccdStatus[ccd].activated = False
             self.actor.processSequence(ccd, cmd, utils.FailExposure(ccd))
 
     def expose(self, cmd, expType, exptime, arms):
@@ -47,12 +80,12 @@ class expose(QThread):
             raise Exception("exptime must be positive")
 
         [state, mode, position] = enuKeys.keyVarDict['shutters'].getValue()
-        if not (state == "IDLE" and position == "close") or self.boolStop:
+        if not (state == "IDLE" and position == "close"):
             raise Exception("Shutters are not in position")
 
         for arm in arms:
             ccd = self.actor.arm2ccd[arm]
-            self.ccdState[ccd] = True, None
+            self.ccdStatus[ccd].activated = True
             self.actor.controllers[ccd].putMsg(partial(self.operCcd, {'actor': ccd,
                                                                       'cmdStr': "wipe",
                                                                       'timeLim': 60,
@@ -68,7 +101,7 @@ class expose(QThread):
         if np.isnan(exptime):
             raise Exception("Shutters expose did not occur as expected (interlock ?) Aborting ... ")
 
-        for ccd in self.ccdExposing:
+        for ccd in self.ccdActive:
             cmdStr = "read %s exptime=%.3f obstime=%s" % (expType, exptime, dateobs)
             self.actor.controllers[ccd].putMsg(partial(self.operCcd, {'actor': ccd,
                                                                       'cmdStr': cmdStr,
@@ -78,23 +111,27 @@ class expose(QThread):
         self.waitAndHandle(state='reading', timeout=60)
         self.waitAndHandle(state='idle', timeout=180)
 
-    def checkState(self, state):
-        for key, (bool, value) in self.ccdState.iteritems():
-            if bool and value != state:
+    def synchronise(self, state):
+        for key, ccdstatus in self.ccdStatus.iteritems():
+            if not ccdstatus.reached(state):
                 return False
         return True
 
     def waitAndHandle(self, state, timeout):
         t0 = time.time()
 
-        while not (self.checkState(state) and self.ccdExposing):
+        while not (self.synchronise(state) and self.ccdActive):
 
             if (time.time() - t0) > timeout:
                 raise Exception("ccd %s timeout" % state)
             if self.boolStop:
                 raise Exception("ccd exposure interrupted by user")
-            if not self.ccdExposing:
-                raise Exception("ccd %s has failed" % state)
+
+        if not self.ccdActive:
+            raise Exception("ccd %s has failed" % state)
+
+    def resetExposure(self):
+        self.actor.boolStop[self.name] = False
 
     def handleTimeout(self):
         """| Is called when the thread is idle
