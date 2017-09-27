@@ -45,13 +45,9 @@ class ExposeCmd(object):
     def boolStop(self):
         return self.actor.boolStop[self.name]
 
-    def resetExposure(self):
-        self.controller.ccdState = {}
-        self.actor.boolStop[self.name] = False
-
     @threaded
     def doArc(self, cmd):
-        self.resetExposure()
+        self.controller.resetExposure()
 
         cmdKeys = cmd.cmd.keywords
         dcbKeys = self.actor.models['dcb']
@@ -69,47 +65,40 @@ class ExposeCmd(object):
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
-        if "neon" in cmdKeys:
-            arcLamp = "neon"
-        elif "hgar" in cmdKeys:
-            arcLamp = "hgar"
-        elif "xenon" in cmdKeys:
-            arcLamp = "xenon"
-        elif "flat" in cmdKeys:
-            arcLamp = "halogen"
-        else:
-            arcLamp = None
+        arc = None
+        arc = "neon" if "neon" in cmdKeys else arc
+        arc = "hgar" if "hgar" in cmdKeys else arc
+        arc = "xenon" if "xenon" in cmdKeys else arc
+        arc = "halogen" if "flat" in cmdKeys else arc
 
-        try:
-            if arcLamp is not None:
-                cmdCall(actor='dcb', cmdStr="%s on %s" % (arcLamp, attenCmd), timeLim=300, forUserCmd=cmd)
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
 
-            flux = dcbKeys.keyVarDict['photodiode'].getValue()
+        if arc is not None:
+            cmdCall(actor='dcb', cmdStr="%s on %s" % (arc, attenCmd), timeLim=300, forUserCmd=cmd)
 
-            if np.isnan(flux) or flux == 0 or self.boolStop:
-                raise Exception("Flux is null")
+        flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        if np.isnan(flux) or flux == 0 or self.boolStop:
+            raise Exception("Flux is null")
 
         try:
             self.controller.expose(cmd, expType, exptime, arms)
-            arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdExposing]
-            msg = "text='arc done arms=%s exptime=%.2f'" % (','.join(arms), exptime)
+            arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdActive]
+            msg = 'arc done arms=%s exptime=%.2f' % (','.join(arms), exptime)
 
         except Exception as ex:
-            msg = "text='%s'" % formatException(ex, sys.exc_info()[2])
+            msg = formatException(ex, sys.exc_info()[2])
 
-        if arcLamp is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="%s off" % arcLamp, timeLim=60, forUserCmd=cmd)
+        if arc is not None and switchOff:
+            cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
 
-        cmd.fail(msg) if ex else cmd.finish(msg)
-
+        ender = cmd.fail if ex else cmd.finish
+        ender("text='%s'" % msg)
 
     @threaded
     def doExposure(self, cmd):
-        self.resetExposure()
+        self.controller.resetExposure()
 
         cmdKeys = cmd.cmd.keywords
 
@@ -121,13 +110,10 @@ class ExposeCmd(object):
         exptime = cmdKeys['exptime'].values[0]
         expType = "object" if "object" in cmdKeys else "arc"
 
-        try:
-            self.controller.expose(cmd, expType, exptime, arms)
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
 
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        self.controller.expose(cmd, expType, exptime, arms)
 
-        arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdExposing]
+        arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdActive]
         cmd.finish("text='exposure done arms=%s exptime=%.2f'" % (','.join(arms), exptime))
-

@@ -65,26 +65,21 @@ class CalibCmd(object):
         arm = 'red' if 'red' in cmdKeys else arm
         arm = 'blue' if 'blue' in cmdKeys else arm
 
-        try:
-            if exptime <= 0:
-                raise Exception("exptime must be > 0")
-            if nb <= 0:
-                raise Exception("nb > 0 ")
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+        if nb <= 0:
+            raise Exception("nb > 0 ")
 
-            sequence = self.controller.noLight()
-            self.actor.processSequence(self.name, cmd, sequence)
+        sequence = self.controller.noLight()
+        self.actor.processSequence(self.name, cmd, sequence)
 
-            if not force:
-                flux = dcbKeys.keyVarDict['photodiode'].getValue()
-                if np.isnan(flux) or flux > 2e-3:
-                    raise Exception("Flux is not null")
+        if not force:
+            flux = dcbKeys.keyVarDict['photodiode'].getValue()
+            if np.isnan(flux) or flux > 2e-3:
+                raise Exception("Flux is not null")
 
-            sequence = self.controller.background(exptime, nb, arm)
-            self.actor.processSequence(self.name, cmd, sequence)
-
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        sequence = self.controller.background(exptime, nb, arm)
+        self.actor.processSequence(self.name, cmd, sequence)
 
         cmd.finish("text='Background Sequence is over'")
 
@@ -101,23 +96,19 @@ class CalibCmd(object):
 
         ccds = [self.actor.arm2ccd[arm] for arm in arms]
 
-        try:
-            if exptime <= 0:
-                raise Exception("exptime must be > 0")
-            if ndarks <= 0:
-                raise Exception("ndarks > 0 ")
-            for ccd in ccds:
-                sequence = self.controller.dark(ccd, exptime, ndarks)
-                ccdThread = self.actor.controllers[ccd]
-                ccdThread.showOn = True
-                ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+        if ndarks <= 0:
+            raise Exception("ndarks > 0 ")
 
-            while self.actor.ccdActive:
-                time.sleep(1)
+        for ccd in ccds:
+            sequence = self.controller.dark(ccd, exptime, ndarks)
+            ccdThread = self.actor.controllers[ccd]
+            ccdThread.showOn = True
+            ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
 
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        while not self.actor.jobsDone:
+            time.sleep(1)
 
         cmd.finish("text='Dark Sequence is over'")
 
@@ -133,21 +124,16 @@ class CalibCmd(object):
 
         ccds = [self.actor.arm2ccd[arm] for arm in arms]
 
-        try:
-            if nbias <= 0:
-                raise Exception("nbias > 0 ")
-            for ccd in ccds:
-                sequence = self.controller.bias(ccd, nbias)
-                ccdThread = self.actor.controllers[ccd]
-                ccdThread.showOn = True
-                ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
+        if nbias <= 0:
+            raise Exception("nbias > 0 ")
+        for ccd in ccds:
+            sequence = self.controller.bias(ccd, nbias)
+            ccdThread = self.actor.controllers[ccd]
+            ccdThread.showOn = True
+            ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
 
-            while self.actor.ccdActive:
-                time.sleep(1)
-
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        while not self.actor.jobsDone:
+            time.sleep(1)
 
         cmd.finish("text='Bias Sequence is over'")
 
@@ -165,25 +151,20 @@ class CalibCmd(object):
 
         ccds = [self.actor.arm2ccd[arm] for arm in arms]
 
-        try:
-            if exptime <= 0:
-                raise Exception("exptime must be > 0")
-            if ndarks <= 0:
-                raise Exception("ndarks > 0 ")
-            if nbias <= 0:
-                raise Exception("nbias > 0 ")
-            for ccd in ccds:
-                sequence = self.controller.calibration(ccd, nbias, ndarks, exptime)
-                ccdThread = self.actor.controllers[ccd]
-                ccdThread.showOn = True
-                ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+        if ndarks <= 0:
+            raise Exception("ndarks > 0 ")
+        if nbias <= 0:
+            raise Exception("nbias > 0 ")
+        for ccd in ccds:
+            sequence = self.controller.calibration(ccd, nbias, ndarks, exptime)
+            ccdThread = self.actor.controllers[ccd]
+            ccdThread.showOn = True
+            ccdThread.putMsg(partial(self.actor.processSequence, self.name, cmd, sequence))
 
-            while self.actor.ccdActive:
-                time.sleep(1)
-
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        while not self.actor.jobsDone:
+            time.sleep(1)
 
         cmd.finish("text='Basic calib Sequence is over'")
 
@@ -205,38 +186,30 @@ class CalibCmd(object):
         arm = 'red' if 'red' in cmdKeys else arm
         arm = 'blue' if 'blue' in cmdKeys else arm
 
-        if "neon" in cmdKeys:
-            arc = "neon"
-        elif "hgar" in cmdKeys:
-            arc = "hgar"
-        elif "xenon" in cmdKeys:
-            arc = "xenon"
-        else:
-            arc = None
+        arc = None
+        arc = "neon" if "neon" in cmdKeys else arc
+        arc = "hgar" if "hgar" in cmdKeys else arc
+        arc = "xenon" if "xenon" in cmdKeys else arc
 
-        try:
-            if exptime <= 0:
-                raise Exception("exptime must be > 0")
-            if nb <= 1:
-                raise Exception("nb > 1 ")
-            if delay <= 0:
-                raise Exception("delay > 0 ")
-            if duplicate <= 0:
-                raise Exception("duplicate > 0 ")
-
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+        if nb <= 1:
+            raise Exception("nb > 1 ")
+        if delay <= 0:
+            raise Exception("delay > 0 ")
+        if duplicate <= 0:
+            raise Exception("duplicate > 0 ")
 
         try:
             sequence = self.controller.imstability(exptime, nb, delay, arc, arm, duplicate, attenCmd)
             self.actor.processSequence(self.name, cmd, sequence)
-            msg = "text='Image stability Sequence is over'"
+            msg = 'Image stability Sequence is over'
 
         except Exception as e:
-            msg = "text='%s'" % formatException(e, sys.exc_info()[2])
+            msg = formatException(e, sys.exc_info()[2])
 
         if arc is not None and switchOff:
             cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
 
-        cmd.fail(msg) if e else cmd.finish(msg)
+        ender = cmd.fail if e else cmd.finish
+        ender("text='%s'" % msg)

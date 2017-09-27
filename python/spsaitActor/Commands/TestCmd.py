@@ -8,7 +8,6 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from spsaitActor.utils import threaded, formatException
 
-
 class TestCmd(object):
     def __init__(self, actor):
         # This lets us access the rest of the actor.
@@ -28,7 +27,8 @@ class TestCmd(object):
             ('backtes', '<nb> <exptime>  [@(blue|red)] [force]', self.test),
             ('darktes', '<ndarks> <exptime>  [@(blue|red)]', self.test),
             ('calibtes', '[<nbias>] [<ndarks>]  [@(blue|red)] [<exptime>]', self.test),
-            ('stabtest', '<exptime> <nb> <delay> [@(neon|hgar|xenon)]  [@(blue|red)] [<attenuator>] [switchOff]', self.test)
+            ('stabtest', '<exptime> <nb> <delay> [@(neon|hgar|xenon)]  [@(blue|red)] [<attenuator>] [switchOff]', self.test),
+            ('test', 'sequence', self.sequence)
 
         ]
 
@@ -67,11 +67,8 @@ class TestCmd(object):
     @threaded
     def sequence(self, cmd):
         arm = 'red'
-        try:
-            sequence = self.controller.test(arm)
-            self.actor.processSequence(self.name, cmd, sequence)
-        except Exception as e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-            return
+
+        sequence = self.controller.test(arm)
+        self.actor.processSequence(self.name, cmd, sequence)
 
         cmd.finish("text='Test is over'")

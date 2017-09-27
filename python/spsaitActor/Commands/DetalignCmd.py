@@ -72,34 +72,28 @@ class DetalignCmd(object):
             startPosition = midPosition - np.min(midPosition) + lowBound
             upBound -= (np.max(midPosition) - np.min(midPosition))
 
-        if "neon" in cmdKeys:
-            arcLamp = "neon"
-        elif "hgar" in cmdKeys:
-            arcLamp = "hgar"
-        elif "xenon" in cmdKeys:
-            arcLamp = "xenon"
-        else:
-            arcLamp = None
+        arc = None
+        arc = "neon" if "neon" in cmdKeys else arc
+        arc = "hgar" if "hgar" in cmdKeys else arc
+        arc = "xenon" if "xenon" in cmdKeys else arc
 
-        for exptime in expTimes:
-            if exptime <= 0:
-                cmd.fail("text='exptime must be positive'")
-                return
+        if True in [True if exptime<=0 else False for exptime in expTimes]:
+            raise Exception("exptime must be > 0")
 
         if nbImage <= 1:
-            cmd.fail("text='nbImage must be at least 2'")
-            return
+            raise Exception("nbImage must be > 1")
 
-        sequence = self.controller.buildThroughFocus(arcLamp, attenCmd, nbImage, expTimes, lowBound, upBound, motor,
+        sequence = self.controller.buildThroughFocus(arc, attenCmd, nbImage, expTimes, lowBound, upBound, motor,
                                                      startPosition, arms)
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
-            msg = "text='Through Focus is over'"
+            msg = 'Through Focus is over'
         except Exception as e:
-            msg = "text='%s'" % formatException(e, sys.exc_info()[2])
+            msg = formatException(e, sys.exc_info()[2])
 
-        if arcLamp is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="%s off" % arcLamp, forUserCmd=cmd)
+        if arc is not None and switchOff:
+            cmdCall(actor='dcb', cmdStr="%s off" % arc, forUserCmd=cmd)
 
-        cmd.fail(msg) if e else cmd.finish(cmd)
+        ender = cmd.fail if e else cmd.finish
+        ender("text='%s'" % msg)

@@ -59,28 +59,20 @@ class SlitalignCmd(object):
         prefix = str(cmd.cmd.keywords['prefix'].values[0])
         nbImage = cmd.cmd.keywords['nb'].values[0]
         exptime = cmd.cmd.keywords['exptime'].values[0]
-        slitLowBound = cmd.cmd.keywords['lowBound'].values[0]
-        slitHighBound = cmd.cmd.keywords['highBound'].values[0]
+        slitLow = cmd.cmd.keywords['lowBound'].values[0]
+        slitUp = cmd.cmd.keywords['highBound'].values[0]
 
         nbBackground = 3
 
         if exptime <= 0:
-            cmd.fail("text='exptime must be positive'")
-            return
+            raise Exception("exptime must be > 0")
+        if nbImage <= 0:
+            raise Exception("nbImage > 0 ")
+   
+        sequence = self.controller.throughfocus(prefix, nbImage, exptime, slitLow, slitUp, nbBackground)
+        self.actor.processSequence(self.name, cmd, sequence)
 
-        if nbImage <= 1:
-            cmd.fail("text='nbImage must be at least 2'")
-            return
-
-        sequence = self.controller.throughfocus(prefix, nbImage, exptime, slitLowBound, slitHighBound, nbBackground)
-
-        try:
-            self.actor.processSequence(self.name, cmd, sequence)
-            msg = "text='Through focus is over'"
-        except Exception as e:
-            msg = "text='%s'" % formatException(e, sys.exc_info()[2])
-
-        cmd.fail(msg) if e else cmd.finish(msg)
+        cmd.finish("text='Through focus is over'")
 
     def adjust(self, cmd):
         cmdKeys = cmd.cmd.keywords

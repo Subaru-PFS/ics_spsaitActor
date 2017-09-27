@@ -5,7 +5,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException, CmdSeq
+from spsaitActor.utils import threaded, formatException
 
 
 class DitherCmd(object):
@@ -43,7 +43,7 @@ class DitherCmd(object):
 
     @threaded
     def dither(self, cmd):
-        e = False
+        ex = False
         arm = ''
 
         cmdKeys = cmd.cmd.keywords
@@ -64,22 +64,20 @@ class DitherCmd(object):
         [state, mode, x, y, z, u, v, w] = enuKeys.keyVarDict['slit'].getValue()
 
         if exptime <= 0:
-            cmd.fail("text='exptime must be positive'")
-            return
-
-        if nbImage < 1:
-            cmd.fail("text='nbImage must be at least 1'")
-            return
+            raise Exception("exptime must be > 0")
+        if nbImage <= 0:
+            raise Exception("nbImage > 0")
 
         sequence = self.controller.dithering(x, y, z, u, v, w, shift, nbImage, exptime, arm, duplicate, attenCmd)
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
-            msg = "text='Dithering is over'"
-        except Exception as e:
-            msg = "text='%s'" % formatException(e, sys.exc_info()[2])
+            msg = 'Dithering sequence is over'
+        except Exception as ex:
+            msg = formatException(ex, sys.exc_info()[2])
 
         if switchOff:
             cmdCall(actor='dcb', cmdStr="halogen off", forUserCmd=cmd)
 
-        cmd.fail(msg) if e else cmd.finish(msg)
+        ender = cmd.fail if ex else cmd.finish
+        ender("text='%s'" % msg)
