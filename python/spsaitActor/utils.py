@@ -3,19 +3,22 @@ import time
 import traceback as tb
 from functools import partial
 
+import numpy as np
 from actorcore.QThread import QThread
 
 
 class Threshold(QThread):
-    def __init__(self, actor, xcuData, name, threshold, vFail, tlim, callback, kwargs):
+    def __init__(self, actor, xcuData, name, ind, threshold, vFail, tlim, callback, kwargs, testfunc):
         QThread.__init__(self, actor, name, timeout=2)
         self.xcuData = xcuData
+        self.ind = ind
         self.threshold = threshold
         self.vFail = vFail
         self.tlim = tlim
         self.callback = callback
         self.kwargs = kwargs
         self.ret = None
+        self.testfunc = testfunc
 
         self.startUp()
 
@@ -26,12 +29,12 @@ class Threshold(QThread):
         if self.exitASAP:
             raise SystemExit()
 
-        if self.vFail is not None and self.xcuData[self.name] >= self.vFail:
+        if self.vFail is not None and self.testfunc(self.xcuData[self.name][self.ind], self.vFail):
             self.ret = None, None
             self.exit()
 
-        elif (self.xcuData[self.name] > self.threshold) or time.time() > self.tlim:
-            self.ret = time.time(), self.xcuData[self.name]
+        elif self.testfunc(self.xcuData[self.name][self.ind], self.threshold) or time.time() > self.tlim:
+            self.ret = time.time(), self.xcuData[self.name][self.ind]
             self.callback(**self.kwargs)
             self.exit()
 
@@ -45,7 +48,8 @@ class xcuData(dict):
         self.actor = actor
         self.xcuKeys = actor.models[xcu]
 
-        for key in ['pressure', 'turboSpeed', 'gatevalve', 'ionpump1', 'ionpump2', 'coolerTemps']:
+        for key in ['pressure', 'turboSpeed', 'gatevalve', 'ionpump1', 'ionpump2', 'coolerTemps',
+                    'heaters', 'temps', 'roughPressure1']:
             keyvar = self.xcuKeys.keyVarDict[key]
             self[key] = None
             keyvar.addCallback(self.updateVals)
@@ -57,19 +61,36 @@ class xcuData(dict):
         except ValueError:
             val = None
 
-        self[key] = val
+        self[key] = val if type(val) is tuple else (val,)
 
-    def addThreshold(self, key, threshold, vFail=None, tlim=None, callback=None, kwargs=None):
-        th = Threshold(self.actor, self, key, threshold, vFail, tlim, callback, kwargs)
+    def addThreshold(self, key, threshold, ind=0, vFail=None, tlim=np.inf, callback=None, kwargs=None, testfunc=np.greater):
+        th = Threshold(self.actor, self, key, ind, threshold, vFail, tlim, callback, kwargs, testfunc)
         return th
+
+    def waitFor(self, cmd, name, key, ind=0, inf=-np.inf, sup=np.inf, ti=1):
+        t0 = time.time()
+        while self[key][ind] is None or not (inf < self[key][ind] < sup):
+            if self.actor.boolStop[name]:
+                raise Exception("%s stop requested" % name.capitalize())
+            time.sleep(ti)
+            if (time.time() - t0) > 15:
+                if inf != -np.inf:
+                    cmd.inform("text='Waiting %s (%g) > %g'" % (key, self[key][ind], inf))
+                if sup != np.inf:
+                    cmd.inform("text='Waiting %s (%g) < %g'" % (key, self[key][ind], sup))
+                t0 = time.time()
+
+    @property
+    def roughPressure(self):
+        return self['roughPressure1'][0]
 
     @property
     def turboSpeed(self):
-        return self['turboSpeed']
+        return self['turboSpeed'][0]
 
     @property
     def pressure(self):
-        return self['pressure']
+        return self['pressure'][0]
 
     @property
     def gvPosition(self):
@@ -94,6 +115,18 @@ class xcuData(dict):
     @property
     def coolerPower(self):
         return self['coolerTemps'][3]
+
+    @property
+    def detectorBox(self):
+        return self['temps'][0]
+
+    @property
+    def heaterSpider(self):
+        return self['heaters'][0]
+
+    @property
+    def heaterCcd(self):
+        return self['heaters'][1]
 
 
 class CmdSeq(object):
@@ -161,6 +194,26 @@ def gatevalve(xcuActor, state):
 
     sequence = [CmdSeq(xcuActor, "gatevalve %s" % state, doRetry=True),
                 CmdSeq(xcuActor, "gatevalve status")]
+
+    return sequence
+
+
+def heater(xcuActor, heater, state):
+    if state not in ["on", "off"]:
+        raise ValueError
+    state = 'power=100' if state == "on" else "off"
+    sequence = [CmdSeq(xcuActor, "heaters %s %s" % (heater, state), doRetry=True),
+                CmdSeq(xcuActor, "heaters status")]
+
+    return sequence
+
+
+def cooler(xcuActor, state, setpoint=None):
+    if state not in ["on", "off"]:
+        raise ValueError
+    state = 'on setpoint=%g' % setpoint if state == "on" else "off"
+    sequence = [CmdSeq(xcuActor, "cooler %s" % state, doRetry=True),
+                CmdSeq(xcuActor, "cooler status")]
 
     return sequence
 
