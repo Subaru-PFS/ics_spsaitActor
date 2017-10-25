@@ -23,7 +23,7 @@ class ExposeCmd(object):
         self.name = "expose"
         self.vocab = [
             ('expose', '[object] <exptime> [<comment>] [@(blue|red)]', self.doExposure),
-            ('expose', 'arc <exptime> [@(neon|hgar|xenon)] [<attenuator>] [@(blue|red)] [switchOff]', self.doArc),
+            ('expose', 'arc <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [switchOff]', self.doArc),
             ('expose', 'flat <exptime> [<attenuator>] [@(blue|red)] [switchOff]', self.doArc),
         ]
 
@@ -69,6 +69,7 @@ class ExposeCmd(object):
         arc = "neon" if "neon" in cmdKeys else arc
         arc = "hgar" if "hgar" in cmdKeys else arc
         arc = "xenon" if "xenon" in cmdKeys else arc
+        arc = "krypton" if "krypton" in cmdKeys else arc
         arc = "halogen" if "flat" in cmdKeys else arc
 
         if exptime <= 0:
@@ -79,7 +80,7 @@ class ExposeCmd(object):
 
         flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
-        if np.isnan(flux) or flux == 0 or self.boolStop:
+        if np.isnan(flux) or flux <= 0 or self.boolStop:
             raise Exception("Flux is null")
 
         try:
