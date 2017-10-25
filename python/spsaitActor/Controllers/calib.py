@@ -29,8 +29,8 @@ class calib(QThread):
         return ndarks * [CmdSeq(ccd, "expose darks=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
 
     def calibration(self, ccd, nbias, ndarks, exptime):
-        sequence = [CmdSeq(ccd, "expose nbias=%i" % nbias, timeLim=nbias * 180, doRetry=True)]
-        sequence += ndarks * [CmdSeq(ccd, "expose darks=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
+        sequence = self.bias(ccd, nbias)
+        sequence += self.dark(ccd, exptime, ndarks)
 
         return sequence
 
