@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 import time
-import numpy as np
+
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-
-from spsaitActor.utils import threaded, computeRate, roughing, turbo, ionpumps, heater, cooler, gatevalve
+from spsaitActor.utils import threaded, computeRate
 
 
 class CryoCmd(object):
@@ -20,7 +19,7 @@ class CryoCmd(object):
         self.name = "cryo"
         self.vocab = [
             ('leakback', '@(blue|red) [<duration>]', self.leakback),
-            ('regeneration', '@(blue|red) [noleakback]', self.regeneration),
+            ('regeneration', '@(blue|red)', self.regeneration),
         ]
 
         # Define typed command arguments for the above commands.
@@ -72,13 +71,10 @@ class CryoCmd(object):
         if xcuData.ionpump1On or xcuData.ionpump2On:
             raise Exception("Ionpumps are not off !")
 
-        cmd.inform("text='Pumps are OFF'")
-        cmd.inform("text='leakback started'")
-
         if ionPumpsWasOn and not turboWasOn:
             th = xcuData.addThreshold(key="pressure",
                                       threshold=5e-6,
-                                      vFail=2e-5,
+                                      vFail=5e-5,
                                       tlim=tlim,
                                       callback=self.actor.safeCall,
                                       kwargs={'actor': xcuActor, 'cmdStr': "ionpump on", 'forUserCmd': cmd})
@@ -105,7 +101,6 @@ class CryoCmd(object):
 
         tEnd, pEnd = th.ret
 
-        cmd.inform("text='Pump down restarted'")
         self.controller.sample(xcuActor, cmd=cmd)
 
         if ionPumpsWasOn and not turboWasOn:
@@ -122,12 +117,9 @@ class CryoCmd(object):
     def regeneration(self, cmd):
         cmdKeys = cmd.cmd.keywords
         arm = "blue" if "blue" in cmdKeys else "red"
-        leaktime = 30 if "noleakback" in cmdKeys else 600
-        refslope = -20e-6 / 600
 
         xcuActor, xcuKeys = self.controller.xcuKeys(arm)
         xcuData = self.controller.xcuDatas[xcuActor]
-        roughData = self.controller.xcuDatas[self.actor.roughHack]
 
         self.controller.sample(xcuActor, cmd=cmd)
 
@@ -141,133 +133,23 @@ class CryoCmd(object):
         if not ionPumpsWasOn:
             raise Exception("Ionpumps are not started")
 
-        cmd.inform("text='Regeneration process started'")
+        startRoughing = self.controller.startRoughing()
+        self.actor.processSequence(self.name, cmd, startRoughing)
 
-        cmd.inform("text='Starting Roughing pump ...'")
-        self.actor.processSequence(self.name, cmd, roughing(state="start"))
+        while self.controller.roughGauge > 1e-3:
+            time.sleep(1)
 
-        if not self.controller.roughPower:
-            raise Exception("Roughing Pump is not powered ON !")
+        startTurbo = self.controller.startTurbo(xcuActor)
+        self.actor.processSequence(self.name, cmd, startTurbo, doReset=False)
 
-        roughData.waitFor(cmd, self.name, "roughPressure1", sup=1e-2)
+        while not (89900 < xcuData.turboSpeed < 90100):
+            time.sleep(1)
 
-        cmd.inform("text='Starting Turbo ...'")
-        self.actor.processSequence(self.name, cmd, turbo(xcuActor, state="start"))
+        p0 = xcuData.pressure
+        openGV = self.controller.openGV(xcuActor)
+        self.actor.processSequence(self.name, cmd, openGV, doReset=False)
 
-        xcuData.waitFor(cmd, self.name, "turboSpeed", inf=89900, sup=91100)
+        while (xcuData.pressure / p0) > 0.8:
+            time.sleep(1)
 
-        if not (89900 < xcuData.turboSpeed < 90100):
-            raise Exception("Turbo is not spinning correctly")
-
-        cmd.inform("text='Turbo Started !'")
-
-        tStart, pStart = time.time(), xcuData.pressure
-        cmd.inform("text='Stopping Ionpumps ...'")
-        self.actor.processSequence(self.name, cmd, ionpumps(xcuActor, state="stop"))
-        if not xcuData.ionpump1On and xcuData.ionpump2On:
-            raise Exception("Ionpumps are not started")
-
-        th = xcuData.addThreshold(key="pressure",
-                                  threshold=2e-3,
-                                  vFail=0.5,
-                                  tlim=tStart + leaktime,
-                                  callback=self.actor.safeCall,
-                                  kwargs={'actor': xcuActor, 'cmdStr': "gatevalve open", 'forUserCmd': cmd})
-
-        try:
-            while not th.exitASAP:
-                if not (89900 < xcuData.turboSpeed < 90100):
-                    raise Exception("Turbo is not spinning correctly anymore")
-                if not xcuData.pressure:
-                    raise Exception("Ion gauge is not working anymore")
-                if not roughData.roughPressure < 1e-2:
-                    raise Exception("Roughing pressure is too high")
-                if self.boolStop:
-                    raise Exception("%s stop requested" % self.name.capitalize())
-        except:
-            th.exit()
-            raise
-
-        tEnd, pEnd = th.ret
-        cmd.inform("leakrate='%.5e Torr L s-1'" % computeRate(tStart, tEnd, pStart, pEnd))
-
-        xcuData.waitFor(cmd, self.name, "pressure", sup=pStart)
-        for heatName in ['ccd', 'spider']:
-            cmd.inform("text='Starting Heater %s...'" % heatName)
-            self.actor.processSequence(self.name, cmd, heater(xcuActor, heatName, state="on"))
-
-        if not xcuData.heaterCcd:
-            raise Exception("Heater CCD is not powered ON")
-
-        if not xcuData.heaterSpider:
-            raise Exception("Heater spider is not powered ON")
-
-        cmd.inform("text='Heaters powered ON !'")
-
-        th1 = xcuData.addThreshold(key="temps",
-                                   threshold=200,
-                                   ind=0,
-                                   callback=self.actor.safeCall,
-                                   kwargs={'actor': xcuActor, 'cmdStr': "heaters ccd off", 'forUserCmd': cmd})
-
-        th2 = xcuData.addThreshold(key="temps",
-                                   threshold=150,
-                                   ind=3,
-                                   callback=self.actor.safeCall,
-                                   kwargs={'actor': xcuActor, 'cmdStr': "heaters spider off", 'forUserCmd': cmd})
-
-        self.actor.processSequence(self.name, cmd, cooler(xcuActor, state="off"))
-        if xcuData.coolerPower:
-            raise Exception("Cooler is not OFF")
-
-        tCurrent, pCurrent = time.time(), xcuData.pressure
-        while 1:
-            if not (89900 < xcuData.turboSpeed < 90100):
-                raise Exception("Turbo is not spinning correctly anymore")
-            if not xcuData.pressure:
-                raise Exception("Ion gauge is not working anymore")
-            if self.boolStop:
-                raise Exception("%s stop requested" % self.name.capitalize())
-
-            if (time.time() - tCurrent) > 600:
-                slope = (xcuData.pressure - pCurrent) / (time.time() - tCurrent)
-                if slope < refslope:
-                    break
-                tCurrent, pCurrent = time.time(), xcuData.pressure
-                cmd.inform("text='Waiting for outgassing spike, slope(%g) < %g" % (slope, refslope))
-
-        xcuData.waitFor(cmd, self.name, "pressure", sup=2e-6)
-
-        self.actor.processSequence(self.name, cmd, cooler(xcuActor, state="on", setpoint=100))
-        if not xcuData.coolerPower:
-            raise Exception("Cooler is not ON")
-
-        cmd.inform("text='Cooling down !'")
-        th1 = xcuData.addThreshold(key="pressure",
-                                   threshold=1e-6,
-                                   testfunc=np.less,
-                                   callback=self.actor.safeCall,
-                                   kwargs={'actor': xcuActor, 'cmdStr': "ionpump on", 'forUserCmd': cmd})
-
-        xcuData.waitFor(cmd, self.name, "coolerTemps", ind=2, sup=100)
-        cmd.inform("text='Cooler Tip reached setpoint !'")
-
-        cmd.inform("text='Closing Gatevalve ...'")
-        self.actor.processSequence(self.name, cmd, gatevalve(xcuActor, state="close"))
-        if not (xcuData.gvPosition == "Closed" and xcuData.gvControlState == "Closed"):
-            raise Exception("Gatevalve is not closed")
-
-        cmd.inform("text='Stopping Turbo ...'")
-        self.actor.processSequence(self.name, cmd, turbo(xcuActor, state="stop"))
-        xcuData.waitFor(cmd, self.name, "turboSpeed", sup=1)
-
-        if xcuData.turboSpeed:
-            raise Exception("Turbo is still spinning")
-
-        cmd.inform("text='Stopping Roughing pump ...'")
-        self.actor.processSequence(self.name, cmd, roughing(state="stop"))
-
-        if self.controller.roughPower:
-            raise Exception("Roughing Pump is still powered ON !")
-
-        cmd.finish("text='Regeneration process OK'")
+        regeneration = self.controller.regeneration(xcuActor)

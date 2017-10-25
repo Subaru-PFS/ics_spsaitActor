@@ -16,14 +16,13 @@ class SpsaitActor(actorcore.ICC.ICC):
         #
         self.name = name
         ccd = "ccd"
-        xcu = "xcu"
+        xcu = "testa"
         arms = ['blue', 'red']
 
         self.ccds = ['%s_%s%i' % (ccd, cam[0], self.specId) for cam in arms]
         self.xcus = ['%s_%s%i' % (xcu, cam[0], self.specId) for cam in arms]
 
-        self.roughHack = '%s_r1' % xcu
-        self.xcus += ([self.roughHack] if self.specId == 0 else [])
+        hack = ['xcu_r1'] if self.specId == 0 else []
         self.arm2ccd = dict([(arm, ccd) for arm, ccd in zip(arms, self.ccds)])
         self.arm2xcu = dict([(arm, xcu) for arm, xcu in zip(arms, self.xcus)])
         self.ccd2arm = dict([(ccd, arm) for arm, ccd in zip(arms, self.ccds)])
@@ -32,7 +31,7 @@ class SpsaitActor(actorcore.ICC.ICC):
                                    name,
                                    productName=productName,
                                    configFile=configFile,
-                                   modelNames=['enu', 'dcb'] + self.xcus + self.ccds)
+                                   modelNames=['enu', 'dcb'] + hack + self.xcus + self.ccds)
 
         self.logger.setLevel(logLevel)
 

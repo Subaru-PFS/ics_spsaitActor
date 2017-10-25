@@ -18,8 +18,14 @@ class cryo(QThread):
         self.attachCallbacks()
 
     @property
-    def roughPower(self):
-        return self.actor.models[self.actor.roughHack].keyVarDict['roughpump'].getValue()
+    def roughGauge(self):
+        model = self.actor.models['xcu_r1']
+        keyvar = model['roughGauge1']
+        try:
+            val = keyvar.getValue()
+        except ValueError:
+            val = None
+        return val
 
     def startPumps(self, xcuActor, ionPumpsOn, turboOn, gvOpen):
 
@@ -37,8 +43,6 @@ class cryo(QThread):
     def sample(self, xcuActor, cmd=None, keys=None):
         keys = ["turbo", "gauge", "cooler", "gatevalve", "ionpump"] if keys is None else keys
         sequence = [CmdSeq(xcuActor, "%s status" % key, doRetry=True, tempo=1.0) for key in keys]
-        sequence += [CmdSeq(self.actor.roughHack, "roughGauge1 status", doRetry=True, tempo=1.0)]
-
         if cmd is not None:
             self.actor.processSequence(self.name, cmd, sequence)
         else:
@@ -51,7 +55,6 @@ class cryo(QThread):
                     CmdSeq(xcuActor, "heaters spider power=100")]
 
         return sequence
-
 
     def attachCallbacks(self):
         for xcu in self.actor.xcus:
