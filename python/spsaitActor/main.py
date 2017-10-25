@@ -85,7 +85,7 @@ class SpsaitActor(actorcore.ICC.ICC):
             if not doRetry or self.boolStop[keyStop]:
                 raise Exception("%s has failed" % cmdStr.upper())
             else:
-                time.sleep(8)
+                time.sleep(10)
                 self.safeCall(**kwargs)
 
     def processSequence(self, name, cmd, sequence, ti=0.2, doReset=True):
