@@ -1,7 +1,9 @@
 import logging
+import time
 
 from actorcore.QThread import QThread
-from spsaitActor.utils import CmdSeq, xcuData, gatevalve, ionpumps
+from spsaitActor.utils import CmdSeq, xcuData
+
 
 
 class cryo(QThread):
@@ -29,14 +31,16 @@ class cryo(QThread):
 
     def startPumps(self, xcuActor, ionPumpsOn, turboOn, gvOpen):
 
-        sequence = gatevalve(xcuActor, state="open") if (turboOn and gvOpen) else []
-        sequence += (ionpumps(xcuActor, state="start") if ionPumpsOn else [])
+        sequence = [CmdSeq(xcuActor, "gatevalve open", timeLim=90)] if (turboOn and gvOpen) else []
+        sequence += ([CmdSeq(xcuActor, "ionpump on", timeLim=90)] if ionPumpsOn else [])
+        sequence += self.sample(xcuActor)
 
         return sequence
 
     def stopPumps(self, xcuActor, ionPumpsOn, gvOpen):
-        sequence = ionpumps(xcuActor, state="stop") if ionPumpsOn else []
-        sequence += (gatevalve(xcuActor, state="close") if gvOpen else [])
+        sequence = [CmdSeq(xcuActor, "ionpump off", timeLim=90)] if ionPumpsOn else []
+        sequence += ([CmdSeq(xcuActor, "gatevalve close")] if gvOpen else [])
+        sequence += self.sample(xcuActor)
 
         return sequence
 
@@ -48,12 +52,35 @@ class cryo(QThread):
         else:
             return sequence
 
+    def startRoughing(self):
+        sequence = [CmdSeq("dcb", "aten switch on channel=roughpump")]
+        return sequence
+
+    def stopRoughing(self):
+        sequence = [CmdSeq("dcb", "aten switch off channel=roughpump")]
+        return sequence
+
+    def startTurbo(self, xcuActor):
+        sequence = [CmdSeq(xcuActor, "turbo start")]
+        return sequence
+
+    def stopTurbo(self, xcuActor):
+        sequence = [CmdSeq(xcuActor, "turbo stop")]
+        return sequence
+
+    def openGV(self, xcuActor):
+        sequence = [CmdSeq(xcuActor, "gatevalve open")]
+        return sequence
+
+    def closeGV(self, xcuActor):
+        sequence = [CmdSeq(xcuActor, "gatevalve close")]
+        return sequence
+
     def regeneration(self, xcuActor):
         sequence = [CmdSeq(xcuActor, "ionpump off"),
                     CmdSeq(xcuActor, "cooler off"),
                     CmdSeq(xcuActor, "heaters ccd power=100"),
                     CmdSeq(xcuActor, "heaters spider power=100")]
-
         return sequence
 
     def attachCallbacks(self):

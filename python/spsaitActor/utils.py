@@ -1,10 +1,8 @@
 import sys
-import time
 import traceback as tb
 from functools import partial
-
+import time
 from actorcore.QThread import QThread
-
 
 class Threshold(QThread):
     def __init__(self, actor, xcuData, name, threshold, vFail, tlim, callback, kwargs):
@@ -96,6 +94,8 @@ class xcuData(dict):
         return self['coolerTemps'][3]
 
 
+
+
 class CmdSeq(object):
     def __init__(self, actor, cmdStr, timeLim=600, doRetry=False, tempo=5.0):
         object.__init__(self)
@@ -121,48 +121,6 @@ class FailExposure(list):
         self.extend([CmdSeq(ccd, "clearExposure"),
                      CmdSeq(ccd, "disconnect controller=fee", tempo=10),
                      CmdSeq(ccd, "connect controller=fee", tempo=5)])
-
-
-def roughing(state):
-    if state not in ["start", "stop"]:
-        raise ValueError
-    state = "on" if state == "start" else "off"
-
-    sequence = [CmdSeq("dcb", "aten switch %s channel=roughpump" % state),
-                CmdSeq("dcb", "aten status")]
-
-    return sequence
-
-
-def turbo(xcuActor, state):
-    if state not in ["start", "stop"]:
-        raise ValueError
-
-    sequence = [CmdSeq(xcuActor, "turbo %s" % state, doRetry=True),
-                CmdSeq(xcuActor, "turbo status")]
-
-    return sequence
-
-
-def ionpumps(xcuActor, state):
-    if state not in ["start", "stop"]:
-        raise ValueError
-    state = "on" if state == "start" else "off"
-
-    sequence = [CmdSeq(xcuActor, "ionpump %s" % state, doRetry=True),
-                CmdSeq(xcuActor, "ionpump status", doRetry=True)]
-
-    return sequence
-
-
-def gatevalve(xcuActor, state):
-    if state not in ["open", "close"]:
-        raise ValueError
-
-    sequence = [CmdSeq(xcuActor, "gatevalve %s" % state, doRetry=True),
-                CmdSeq(xcuActor, "gatevalve status")]
-
-    return sequence
 
 
 def threaded(func):
@@ -193,5 +151,9 @@ def formatException(e, traceback):
     return "%s %s %s" % (clean(type(e)), clean(type(e)(*e.args)), clean(tb.format_tb(traceback, limit=2)[-1]))
 
 
+
 def computeRate(start, end, pressure1, pressure2):
     return 150 * (pressure2 - pressure1) / (end - start)
+
+
+
