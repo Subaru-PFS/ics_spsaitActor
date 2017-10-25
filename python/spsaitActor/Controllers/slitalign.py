@@ -16,7 +16,7 @@ class slitalign(QThread):
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
 
-    def throughfocus(self, seqNumber, nbImage, exptime, slitLow, slitUp, nbBackground):
+    def throughfocus(self, prefix, nbImage, exptime, slitLow, slitUp, nbBackground):
 
         enuKeys = self.actor.models['enu'].keyVarDict
         start = [slitLow] + list(enuKeys["slit"])[3:]
@@ -34,31 +34,25 @@ class slitalign(QThread):
         sequence = [CmdSeq('afl', 'switch off'), CmdSeq('enu', "slit move absolute %s" % slitStart)]
 
         for j in range(nbBackground):
-            sequence.append(CmdSeq('sac', "background fname=%s exptime=%.2f" % (self.getFilename("BCK", seqNumber, j),
-                                                                                exptime)))
+            sequence.append(CmdSeq('sac', "background fname=%s_background%s.fits exptime=%.2f" % (prefix,
+                                                                                                  str(j + 1).zfill(2),
+                                                                                                  exptime)))
 
         sequence += [CmdSeq('afl', 'switch on'),
-                     CmdSeq('sac', "expose fname=%s exptime=%.2f" % (self.getFilename("EXP", seqNumber, 1),
-                                                                     exptime))]
+                     CmdSeq('sac', "expose fname=%s exptime=%.2f" % (self.getFilename(prefix, 1), exptime))]
 
         for i in range(nbImage - 2):
             sequence += [CmdSeq('enu', "slit move relative X=%.5f" % step[i]),
-                         CmdSeq('sac', "expose fname=%s exptime=%.2f" % (self.getFilename("EXP", seqNumber, i+2),
-                                                                         exptime))]
+                         CmdSeq('sac', "expose fname=%s exptime=%.2f" % (self.getFilename(prefix, i + 2), exptime))]
 
         sequence += [CmdSeq('enu', "slit move absolute %s" % slitEnd),
-                     CmdSeq('sac', "expose fname=%s exptime=%.2f" % (self.getFilename("EXP", seqNumber, nbImage),
-                                                                     exptime))]
+                     CmdSeq('sac', "expose fname=%s exptime=%.2f" % (self.getFilename(prefix, nbImage), exptime))]
 
         return sequence
 
-    def getFilename(self, exptype, seqNumber, expId):
+    def getFilename(self, prefix, i):
 
-        return "FCA%i_SEQ%s_%s%s.fits" % (self.actor.specId,
-                                          str(seqNumber).zfill(3),
-                                          exptype,
-                                          str(expId).zfill(3))
-
+        return "%s_%s.fits" % (prefix, str(i).zfill(2))
 
     def handleTimeout(self):
         """| Is called when the thread is idle

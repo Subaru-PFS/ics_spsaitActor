@@ -26,7 +26,7 @@ class SlitalignCmd(object):
         self.name = "slitalign"
         self.vocab = [
             ('slitalign', 'loop <exptime>', self.loop),
-            ('slitalign', 'throughfocus <nb> <exptime> <seqNumber> <lowBound> <upBound>', self.throughFocus),
+            ('slitalign', 'throughfocus <nb> <exptime> <prefix> <lowBound> <highBound>', self.throughFocus),
             ('slitalign', 'adjust <X> <Y> <Z> <U> <V> <W>', self.adjust),
         ]
 
@@ -34,9 +34,9 @@ class SlitalignCmd(object):
         self.keys = keys.KeysDictionary("spsait_slitalign", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("nb", types.Int(), help="Number of exposure"),
-                                        keys.Key("seqNumber", types.Int(), help="Sequence number"),
+                                        keys.Key("prefix", types.String(), help="FITS Prefix name"),
                                         keys.Key("lowBound", types.Float(), help="lower bound for through focus"),
-                                        keys.Key("upBound", types.Float(), help="upper bound for through focus"),
+                                        keys.Key("highBound", types.Float(), help="higher bound for through focus"),
                                         keys.Key("X", types.Float(), help="breva X coordinate"),
                                         keys.Key("Y", types.Float(), help="breva Y coordinate"),
                                         keys.Key("Z", types.Float(), help="breva Z coordinate"),
@@ -56,11 +56,11 @@ class SlitalignCmd(object):
     @threaded
     def throughFocus(self, cmd):
         e = False
-        seqNumber = cmd.cmd.keywords['seqNumber'].values[0]
+        prefix = str(cmd.cmd.keywords['prefix'].values[0])
         nbImage = cmd.cmd.keywords['nb'].values[0]
         exptime = cmd.cmd.keywords['exptime'].values[0]
         slitLow = cmd.cmd.keywords['lowBound'].values[0]
-        slitUp = cmd.cmd.keywords['upBound'].values[0]
+        slitUp = cmd.cmd.keywords['highBound'].values[0]
 
         nbBackground = 3
 
@@ -69,7 +69,7 @@ class SlitalignCmd(object):
         if nbImage <= 0:
             raise Exception("nbImage > 0 ")
    
-        sequence = self.controller.throughfocus(seqNumber, nbImage, exptime, slitLow, slitUp, nbBackground)
+        sequence = self.controller.throughfocus(prefix, nbImage, exptime, slitLow, slitUp, nbBackground)
         self.actor.processSequence(self.name, cmd, sequence)
 
         cmd.finish("text='Through focus is over'")
