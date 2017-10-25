@@ -16,13 +16,14 @@ class SpsaitActor(actorcore.ICC.ICC):
         #
         self.name = name
         ccd = "ccd"
-        xcu = "testa"
+        xcu = "xcu"
         arms = ['blue', 'red']
 
         self.ccds = ['%s_%s%i' % (ccd, cam[0], self.specId) for cam in arms]
         self.xcus = ['%s_%s%i' % (xcu, cam[0], self.specId) for cam in arms]
 
-        hack = ['xcu_r1'] if self.specId == 0 else []
+        self.roughHack = '%s_r1' % xcu
+        self.xcus += ([self.roughHack] if self.specId == 0 else [])
         self.arm2ccd = dict([(arm, ccd) for arm, ccd in zip(arms, self.ccds)])
         self.arm2xcu = dict([(arm, xcu) for arm, xcu in zip(arms, self.xcus)])
         self.ccd2arm = dict([(ccd, arm) for arm, ccd in zip(arms, self.ccds)])
@@ -31,7 +32,7 @@ class SpsaitActor(actorcore.ICC.ICC):
                                    name,
                                    productName=productName,
                                    configFile=configFile,
-                                   modelNames=['enu', 'dcb'] + hack + self.xcus + self.ccds)
+                                   modelNames=['enu', 'dcb'] + self.xcus + self.ccds)
 
         self.logger.setLevel(logLevel)
 
@@ -84,7 +85,7 @@ class SpsaitActor(actorcore.ICC.ICC):
             if not doRetry or self.boolStop[keyStop]:
                 raise Exception("%s has failed" % cmdStr.upper())
             else:
-                time.sleep(5)
+                time.sleep(10)
                 self.safeCall(**kwargs)
 
     def processSequence(self, name, cmd, sequence, ti=0.2, doReset=True):
