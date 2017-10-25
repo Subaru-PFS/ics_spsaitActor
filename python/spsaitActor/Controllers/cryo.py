@@ -19,7 +19,7 @@ class cryo(QThread):
 
     @property
     def roughPower(self):
-        return self.actor.models['dcb'].keyVarDict['roughpump'].getValue()
+        return self.actor.models[self.actor.roughHack].keyVarDict['roughpump'].getValue()
 
     def startPumps(self, xcuActor, ionPumpsOn, turboOn, gvOpen):
 
