@@ -111,7 +111,7 @@ class CryoCmd(object):
                 raise Exception("Gatevalve is not OPEN")
 
         cmd.inform("leakrate='%.5e Torr L s-1'" % computeRate(tStart, tEnd, pStart, pEnd))
-        cmd.finish("text='Pressure rising test is over'")
+        cmd.finish("text='leakback measurement is over'")
 
     @threaded
     def regeneration(self, cmd):
