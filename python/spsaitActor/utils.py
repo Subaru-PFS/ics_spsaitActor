@@ -10,6 +10,7 @@ from actorcore.QThread import QThread
 class Threshold(QThread):
     def __init__(self, actor, xcuData, name, ind, threshold, vFail, tlim, callback, kwargs, testfunc):
         QThread.__init__(self, actor, name, timeout=2)
+        self.t0 = time.time() - 120
         self.xcuData = xcuData
         self.ind = ind
         self.threshold = threshold
@@ -29,6 +30,18 @@ class Threshold(QThread):
         if self.exitASAP:
             raise SystemExit()
 
+        if (time.time() - self.t0) > 120:
+            cmd = self.kwargs['forUserCmd']
+            info = 'in %i sec or ' % (self.tlim - time.time()) if self.tlim != np.inf else ""
+            cmd.inform("text='Sending %s %s %sif %s[%i] %s than %g'" % (self.kwargs['actor'],
+                                                                        self.kwargs['cmdStr'],
+                                                                        info,
+                                                                        self.name,
+                                                                        self.ind,
+                                                                        self.testfunc.__name__,
+                                                                        self.threshold))
+
+            self.t0 = time.time()
         if self.vFail is not None and self.testfunc(self.xcuData[self.name][self.ind], self.vFail):
             self.ret = None, None
             self.exit()
@@ -47,6 +60,7 @@ class xcuData(dict):
         dict.__init__(self)
         self.actor = actor
         self.xcuKeys = actor.models[xcu]
+        self.thlist =[]
 
         for key in ['pressure', 'turboSpeed', 'gatevalve', 'ionpump1', 'ionpump2', 'coolerTemps',
                     'heaters', 'temps', 'roughPressure1']:
@@ -63,22 +77,35 @@ class xcuData(dict):
 
         self[key] = val if type(val) is tuple else (val,)
 
-    def addThreshold(self, key, threshold, ind=0, vFail=None, tlim=np.inf, callback=None, kwargs=None, testfunc=np.greater):
+    def addThreshold(self, key, threshold, ind=0, vFail=None, tlim=np.inf, callback=None, kwargs=None,
+                     testfunc=np.greater):
         th = Threshold(self.actor, self, key, ind, threshold, vFail, tlim, callback, kwargs, testfunc)
+        self.thlist.append(th)
         return th
 
     def waitFor(self, cmd, name, key, ind=0, inf=-np.inf, sup=np.inf, ti=1):
-        t0 = time.time()
+        t0 = time.time() - 120
         while self[key][ind] is None or not (inf < self[key][ind] < sup):
             if self.actor.boolStop[name]:
                 raise Exception("%s stop requested" % name.capitalize())
             time.sleep(ti)
-            if (time.time() - t0) > 15:
-                if inf != -np.inf:
+            if (time.time() - t0) > 120:
+                if inf != -np.inf and sup != np.inf:
+                    cmd.inform("text='Waiting %g < %s (%g) < %g'" % (inf, key, self[key][ind], sup))
+                elif inf != -np.inf:
                     cmd.inform("text='Waiting %s (%g) > %g'" % (key, self[key][ind], inf))
-                if sup != np.inf:
+                elif sup != np.inf:
                     cmd.inform("text='Waiting %s (%g) < %g'" % (key, self[key][ind], sup))
                 t0 = time.time()
+
+    def killThread(self):
+        while self.thlist:
+            th = self.thlist[0]
+            try:
+                th.exit()
+            except:
+                pass
+            self.thlist.remove(th)
 
     @property
     def roughPressure(self):
@@ -182,8 +209,10 @@ def ionpumps(xcuActor, state):
         raise ValueError
     state = "on" if state == "start" else "off"
 
-    sequence = [CmdSeq(xcuActor, "ionpump %s" % state, doRetry=True),
-                CmdSeq(xcuActor, "ionpump status", doRetry=True)]
+    sequence = [CmdSeq(xcuActor, "monitor controllers=ionpump period=0", doRetry=True, tempo=20),
+                CmdSeq(xcuActor, "ionpump %s" % state, doRetry=True),
+                CmdSeq(xcuActor, "ionpump status", doRetry=True),
+                CmdSeq(xcuActor, "monitor controllers=ionpump period=15", doRetry=True)]
 
     return sequence
 
@@ -212,7 +241,8 @@ def cooler(xcuActor, state, setpoint=None):
     if state not in ["on", "off"]:
         raise ValueError
     state = 'on setpoint=%g' % setpoint if state == "on" else "off"
-    sequence = [CmdSeq(xcuActor, "cooler %s" % state, doRetry=True),
+    tempo = 180 if state == "on" else 5
+    sequence = [CmdSeq(xcuActor, "cooler %s" % state, doRetry=True, tempo=tempo),
                 CmdSeq(xcuActor, "cooler status")]
 
     return sequence

@@ -21,13 +21,6 @@ class cryo(QThread):
     def roughPower(self):
         return self.actor.models['dcb'].keyVarDict['roughpump'].getValue()
 
-    def startPumps(self, xcuActor, ionPumpsOn, turboOn, gvOpen):
-
-        sequence = gatevalve(xcuActor, state="open") if (turboOn and gvOpen) else []
-        sequence += (ionpumps(xcuActor, state="start") if ionPumpsOn else [])
-
-        return sequence
-
     def stopPumps(self, xcuActor, ionPumpsOn, gvOpen):
         sequence = ionpumps(xcuActor, state="stop") if ionPumpsOn else []
         sequence += (gatevalve(xcuActor, state="close") if gvOpen else [])
@@ -43,15 +36,6 @@ class cryo(QThread):
             self.actor.processSequence(self.name, cmd, sequence)
         else:
             return sequence
-
-    def regeneration(self, xcuActor):
-        sequence = [CmdSeq(xcuActor, "ionpump off"),
-                    CmdSeq(xcuActor, "cooler off"),
-                    CmdSeq(xcuActor, "heaters ccd power=100"),
-                    CmdSeq(xcuActor, "heaters spider power=100")]
-
-        return sequence
-
 
     def attachCallbacks(self):
         for xcu in self.actor.xcus:
