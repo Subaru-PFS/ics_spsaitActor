@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException, CmdSeq
+from spsaitActor.utils import threaded, formatException
 
 
 class DetalignCmd(object):
@@ -21,7 +21,7 @@ class DetalignCmd(object):
         self.name = "detalign"
         self.vocab = [
             ('detalign',
-             'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(neon|hgar|xenon)] [<attenuator>] [<startPosition>] [<midPosition>] [switchOff]',
+             'throughfocus <nb> <exptime> <lowBound> <upBound> [<motor>] [@(neon|hgar|xenon)] [<attenuator>] [<startPosition>] [<midPosition>] [switchOff] [@(blue|red)]',
              self.throughFocus),
         ]
 
@@ -39,6 +39,13 @@ class DetalignCmd(object):
                                          The 3 motors positions are required. If it is not set the lowBound position is used. ")
                                         )
 
+    @property
+    def controller(self):
+        try:
+            return self.actor.controllers[self.name]
+        except KeyError:
+            raise RuntimeError('%s controller is not connected.' % self.name)
+
     @threaded
     def throughFocus(self, cmd):
         e = False
@@ -55,61 +62,38 @@ class DetalignCmd(object):
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         switchOff = True if "switchOff" in cmdKeys else False
 
+        arms = ['blue', 'red']
+
+        arms = arms[1:] if 'red' in cmdKeys else arms
+        arms = arms[:1] if 'blue' in cmdKeys else arms
+
         if "midPosition" in cmdKeys:
             midPosition = cmdKeys['midPosition'].values
             startPosition = midPosition - np.min(midPosition) + lowBound
             upBound -= (np.max(midPosition) - np.min(midPosition))
 
-        if "neon" in cmdKeys:
-            arcLamp = "neon"
-        elif "hgar" in cmdKeys:
-            arcLamp = "hgar"
-        elif "xenon" in cmdKeys:
-            arcLamp = "xenon"
-        else:
-            arcLamp = None
+        arc = None
+        arc = "neon" if "neon" in cmdKeys else arc
+        arc = "hgar" if "hgar" in cmdKeys else arc
+        arc = "xenon" if "xenon" in cmdKeys else arc
 
-        for exptime in expTimes:
-            if exptime <= 0:
-                cmd.fail("text='exptime must be positive'")
-                return
+        if True in [True if exptime<=0 else False for exptime in expTimes]:
+            raise Exception("exptime must be > 0")
 
         if nbImage <= 1:
-            cmd.fail("text='nbImage must be at least 2'")
-            return
+            raise Exception("nbImage must be > 1")
 
-        sequence = self.buildThroughFocus(arcLamp, attenCmd, nbImage, expTimes, lowBound, upBound, motor, startPosition)
+        sequence = self.controller.buildThroughFocus(arc, attenCmd, nbImage, expTimes, lowBound, upBound, motor,
+                                                     startPosition, arms)
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
+            msg = 'Through Focus is over'
         except Exception as e:
-            pass
+            msg = formatException(e, sys.exc_info()[2])
 
-        if arcLamp is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="%s off" % arcLamp, forUserCmd=cmd)
-        if e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-        else:
-            cmd.finish("text='Through Focus is over'")
+        if arc is not None and switchOff:
+            cmdCall(actor='dcb', cmdStr="%s off" % arc, forUserCmd=cmd)
 
-    def buildThroughFocus(self, arc, attenCmd, nbImage, expTimes, lowBound, upBound, motor, startPosition):
-        step = (upBound - lowBound) / (nbImage - 1)
-
-        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
-        # Number of microns must be an integer
-        if startPosition is None:
-            sequence += [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns abs" % (motor, lowBound), doRetry=True)]
-        else:
-            posA, posB, posC = startPosition
-            sequence += [
-                CmdSeq('xcu_r1', "motors moveCcd a=%i b=%i c=%i microns abs" % (posA, posB, posC), doRetry=True)]
-
-        seq_expTime = [CmdSeq('spsait', "expose arc exptime=%.2f" % expTime, timeLim=500+expTime, doRetry=True) for expTime in expTimes]
-
-        sequence += seq_expTime
-
-        for i in range(nbImage - 1):
-            sequence += [CmdSeq('xcu_r1', "motors moveCcd %s=%i microns" % (motor, step))]
-            sequence += seq_expTime
-
-        return sequence
+        ender = cmd.fail if e else cmd.finish
+        ender("text='%s'" % msg)

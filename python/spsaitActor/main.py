@@ -1,27 +1,37 @@
 # !/usr/bin/env python
 
-import ConfigParser
 import argparse
 import logging
 import time
+from functools import partial
 
-import spsaitActor.utils as utils
-from actorcore.Actor import Actor
+import actorcore.ICC
 from actorcore.QThread import QThread
-from opscore.utility.qstr import qstr
 from twisted.internet import reactor
 
 
-class SpsaitActor(Actor):
+class SpsaitActor(actorcore.ICC.ICC):
     def __init__(self, name, productName=None, configFile=None, logLevel=logging.INFO):
         # This sets up the connections to/from the hub, the logger, and the twisted reactor.
         #
-        Actor.__init__(self,
-                       name,
-                       productName=productName,
-                       configFile=configFile,
-                       modelNames=['ccd_r1', 'xcu_r1', 'xcu_r0', 'enu', 'dcb'],
-                       )
+        self.name = name
+        ccd = "ccd"
+        xcu = "testa"
+        arms = ['blue', 'red']
+
+        self.ccds = ['%s_%s%i' % (ccd, cam[0], self.specId) for cam in arms]
+        self.xcus = ['%s_%s%i' % (xcu, cam[0], self.specId) for cam in arms]
+
+        hack = ['xcu_r1'] if self.specId == 0 else []
+        self.arm2ccd = dict([(arm, ccd) for arm, ccd in zip(arms, self.ccds)])
+        self.arm2xcu = dict([(arm, xcu) for arm, xcu in zip(arms, self.xcus)])
+        self.ccd2arm = dict([(ccd, arm) for arm, ccd in zip(arms, self.ccds)])
+
+        actorcore.ICC.ICC.__init__(self,
+                                   name,
+                                   productName=productName,
+                                   configFile=configFile,
+                                   modelNames=['enu', 'dcb'] + hack + self.xcus + self.ccds)
 
         self.logger.setLevel(logLevel)
 
@@ -32,59 +42,28 @@ class SpsaitActor(Actor):
         self.statusLoopCB = self.statusLoop
 
         self.expTime = 1.0
-        self.allThreads = {}
         self.boolStop = {}
-        self.threadedDev = ["expose", "detalign", "dither", "cryo", "calib", "test"]
-
         self.createThreads()
+        self.createBool()
+
+    @property
+    def specId(self):
+        return int(self.name.split('_sm')[-1])
+
+    @property
+    def jobsDone(self):
+        return False if True in [thread.showOn for thread in [self.controllers[ccd] for ccd in self.ccds]] else True
 
     def createThreads(self):
-        for name in self.threadedDev:
-            thread = QThread(self, name)
+        for ccd in self.ccds:
+            thread = QThread(self, ccd, timeout=2)
             thread.start()
-            thread.handleTimeout = self.sleep
-            self.allThreads[name] = thread
-            self.boolStop[name] = False
+            thread.handleTimeout = partial(self.sleep, thread)
+            self.controllers[ccd] = thread
 
-    def reloadConfiguration(self, cmd):
-        logging.info("reading config file %s", self.configFile)
-
-        try:
-            newConfig = ConfigParser.ConfigParser()
-            newConfig.read(self.configFile)
-        except Exception, e:
-            if cmd:
-                cmd.fail('text=%s' % (qstr("failed to read the configuration file, old config untouched: %s" % (e))))
-            raise
-
-        self.config = newConfig
-        cmd.inform('sections=%08x,%r' % (id(self.config),
-                                         self.config))
-
-    def statusLoop(self, controller):
-        try:
-            self.callCommand("%s status" % (controller))
-        except:
-            pass
-
-        if self.monitors[controller] > 0:
-            reactor.callLater(self.monitors[controller],
-                              self.statusLoopCB,
-                              controller)
-
-    def monitor(self, controller, period, cmd=None):
-        if controller not in self.monitors:
-            self.monitors[controller] = 0
-
-        running = self.monitors[controller] > 0
-        self.monitors[controller] = period
-
-        if (not running) and period > 0:
-            cmd.warn('text="starting %gs loop for %s"' % (self.monitors[controller],
-                                                          controller))
-            self.statusLoopCB(controller)
-        else:
-            cmd.warn('text="adjusted %s loop to %gs"' % (controller, self.monitors[controller]))
+    def createBool(self):
+        for controller in self.controllers.itervalues():
+            self.boolStop[controller] = False
 
     def safeCall(self, **kwargs):
 
@@ -103,15 +82,16 @@ class SpsaitActor(Actor):
         if cmdVar.didFail:
             cmd.warn(stat)
             if not doRetry or self.boolStop[keyStop]:
-                raise Exception("%s has failed" % cmdStr)
+                raise Exception("%s has failed" % cmdStr.upper())
             else:
                 time.sleep(5)
                 self.safeCall(**kwargs)
 
-    def processSequence(self, name, cmd, sequence):
-        ti = 0.2
-        self.boolStop[name] = False
-        e = getattr(utils, "%sException" % name.capitalize())
+    def processSequence(self, name, cmd, sequence, ti=0.2, doReset=True):
+
+        e = Exception("%s stop requested" % name.capitalize())
+        if doReset:
+            self.boolStop[name] = False
 
         for cmdSeq in sequence:
             if self.boolStop[name]:
@@ -123,8 +103,43 @@ class SpsaitActor(Actor):
                 time.sleep(ti)
             time.sleep(cmdSeq.tempo % ti)
 
-    def sleep(self):
-        pass
+    def connectionMade(self):
+        if self.everConnected is False:
+            logging.info("Attaching Controllers")
+            self.allControllers = [s.strip() for s in self.config.get(self.name, 'startingControllers').split(',')]
+            self.attachAllControllers()
+            self.everConnected = True
+            logging.info("All Controllers started")
+
+    def statusLoop(self, controller):
+        try:
+            self.callCommand("%s status" % (controller))
+        except:
+            pass
+
+        if self.monitors[controller] > 0:
+            reactor.callLater(self.monitors[controller],
+                              self.statusLoopCB,
+                              controller)
+
+    def monitor(self, controller, period, cmd=None):
+        cmd = cmd if cmd is not None else self.bcast
+
+        if controller not in self.monitors:
+            self.monitors[controller] = 0
+
+        running = self.monitors[controller] > 0
+        self.monitors[controller] = period
+
+        if (not running) and period > 0:
+
+            cmd.warn('text="starting %gs loop for %s"' % (self.monitors[controller], controller))
+            self.statusLoopCB(controller)
+        else:
+            cmd.warn('text="adjusted %s loop to %gs"' % (controller, self.monitors[controller]))
+
+    def sleep(self, thread):
+        thread.showOn = False
 
 
 def main():
@@ -133,11 +148,11 @@ def main():
                         help='configuration file to use')
     parser.add_argument('--logLevel', default=logging.INFO, type=int, nargs='?',
                         help='logging level')
-    parser.add_argument('--name', default='enu', type=str, nargs='?',
+    parser.add_argument('--name', default='spsait', type=str, nargs='?',
                         help='identity')
     args = parser.parse_args()
 
-    theActor = SpsaitActor('spsait',
+    theActor = SpsaitActor(args.name,
                            productName='spsaitActor',
                            configFile=args.config,
                            logLevel=args.logLevel)

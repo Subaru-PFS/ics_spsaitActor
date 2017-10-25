@@ -5,7 +5,7 @@ from datetime import datetime as dt
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, CmdSeq, formatException, CryoException, computeRate
+from spsaitActor.utils import threaded, formatException, CryoException, computeRate
 
 
 class CryoCmd(object):
@@ -19,19 +19,25 @@ class CryoCmd(object):
         #
         self.name = "cryo"
         self.vocab = [
-            ('pressure_rise', '@(r0|r1) [<duration>]', self.pressureTest),
+            ('leakback', '@(blue|red) [<duration>]', self.leakback),
             ('abort', 'cryo doNone', self.abortDoNone),
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_cryo", (1, 1),
-                                        keys.Key("arm", types.String(), help="CU Arm"),
                                         keys.Key("duration", types.Int(),
                                                  help="Pressure rising test duration in minute"),
                                         )
 
+    @property
+    def controller(self):
+        try:
+            return self.actor.controllers[self.name]
+        except KeyError:
+            raise RuntimeError('%s controller is not connected.' % self.name)
+
     @threaded
-    def pressureTest(self, cmd):
+    def leakback(self, cmd):
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
 
@@ -42,12 +48,9 @@ class CryoCmd(object):
             cmd.fail("text='Test duration is too short'")
             return
 
-        if "r0" in cmdKeys:
-            arm = "r0"
-        elif "r1" in cmdKeys:
-            arm = "r1"
+        arm = "blue" if "blue" in cmdKeys else "red"
+        xcuActor = self.actor.arm2xcu[arm]
 
-        xcuActor = 'xcu_%s' % arm
         xcuKeys = self.actor.models[xcuActor]
 
         start = dt.now()
@@ -60,14 +63,14 @@ class CryoCmd(object):
         pressure1 = xcuKeys.keyVarDict['pressure'].getValue()
 
         if not (89900 < turboSpeed < 90100 and position == "Open" and controlState == "Open" and pressure1 < 5e-3):
-            cmd.fail("text='pressure is too high, cant do a pressure rise test'")
+            cmd.fail("text='pressure is too high, cant do a leak back test'")
             return
 
         else:
             cmd.inform("press1=%.5e" % pressure1)
             cmd.inform("gatevalve=%s,%s" % (position, controlState))
 
-        seqClosing, seqCheck, seqOpening = self.buildSequence(xcuActor, duration)
+        seqClosing, seqCheck, seqOpening = self.controller.leakback(xcuActor, duration)
 
         try:
             self.actor.processSequence(self.name, cmd, seqClosing)
@@ -110,21 +113,6 @@ class CryoCmd(object):
 
         cmd.inform("rise_rate='%.5e Torr L s-1'" % computeRate(start, end, pressure1, pressure2))
         cmd.finish("text='Pressure rising test is over'")
-
-    def buildSequence(self, xcuActor, duration):
-        seqClosing = [CmdSeq(xcuActor, "gauge status"),
-                      CmdSeq(xcuActor, "gatevalve close", tempo=5),
-                      CmdSeq(xcuActor, "gatevalve status")]
-
-        seqCheck = [CmdSeq(xcuActor, "gauge status", tempo=duration * 60),
-                    CmdSeq(xcuActor, "gatevalve status"),
-                    CmdSeq(xcuActor, "gauge status"),
-                    CmdSeq(xcuActor, "turbo status")]
-
-        seqOpening = [CmdSeq(xcuActor, "gatevalve open", tempo=5),
-                      CmdSeq(xcuActor, "gatevalve status")]
-
-        return seqClosing, seqCheck, seqOpening
 
     def abortDoNone(self, cmd):
         self.doNone = True

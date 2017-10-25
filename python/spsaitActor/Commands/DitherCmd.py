@@ -5,7 +5,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException, CmdSeq
+from spsaitActor.utils import threaded, formatException
 
 
 class DitherCmd(object):
@@ -19,7 +19,7 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<attenuator>] [switchOff]',
+            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [@(blue|red)] [<duplicate>] [<attenuator>] [switchOff]',
              self.dither),
 
         ]
@@ -34,9 +34,17 @@ class DitherCmd(object):
                                                  help="duplicate number of flat per position(1 is default)"),
                                         )
 
+    @property
+    def controller(self):
+        try:
+            return self.actor.controllers[self.name]
+        except KeyError:
+            raise RuntimeError('%s controller is not connected.' % self.name)
+
     @threaded
     def dither(self, cmd):
-        e = False
+        ex = False
+        arm = ''
 
         cmdKeys = cmd.cmd.keywords
         cmdCall = self.actor.safeCall
@@ -50,50 +58,26 @@ class DitherCmd(object):
         switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
+        arm = 'red' if 'red' in cmdKeys else arm
+        arm = 'blue' if 'blue' in cmdKeys else arm
+
         [state, mode, x, y, z, u, v, w] = enuKeys.keyVarDict['slit'].getValue()
 
         if exptime <= 0:
-            cmd.fail("text='exptime must be positive'")
-            return
+            raise Exception("exptime must be > 0")
+        if nbImage <= 0:
+            raise Exception("nbImage > 0")
 
-        if nbImage < 1:
-            cmd.fail("text='nbImage must be at least 1'")
-            return
-
-        sequence = self.buildSequence(x, y, z, u, v, w, shift, nbImage, exptime, duplicate, attenCmd)
+        sequence = self.controller.dithering(x, y, z, u, v, w, shift, nbImage, exptime, arm, duplicate, attenCmd)
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
-        except Exception as e:
-            pass
+            msg = 'Dithering sequence is over'
+        except Exception as ex:
+            msg = formatException(ex, sys.exc_info()[2])
 
         if switchOff:
             cmdCall(actor='dcb', cmdStr="halogen off", forUserCmd=cmd)
 
-        if e:
-            cmd.fail("text='%s'" % formatException(e, sys.exc_info()[2]))
-        else:
-            cmd.finish("text='Dithering is over'")
-
-    def buildSequence(self, x, y, z, u, v, w, shift, nbImage, exptime, duplicate, attenCmd):
-
-        sequence = duplicate * [
-            CmdSeq('spsait', "expose flat exptime=%.2f %s" % (exptime, attenCmd), timeLim=exptime + 500, doRetry=True)]
-
-        for i in range(nbImage):
-            sequence += [CmdSeq('enu', "slit dither pix=-%.5f" % shift)]
-            sequence += duplicate * [
-                CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
-
-        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
-
-        for i in range(nbImage):
-            sequence += [CmdSeq('enu', "slit dither pix=%.5f " % shift)]
-            sequence += duplicate * [
-                CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
-
-        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
-        sequence += duplicate * [
-            CmdSeq('spsait', "expose flat exptime=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
-
-        return sequence
+        ender = cmd.fail if ex else cmd.finish
+        ender("text='%s'" % msg)
