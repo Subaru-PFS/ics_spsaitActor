@@ -70,11 +70,8 @@ class xcuData(dict):
 
     def updateVals(self, keyvar):
         key = keyvar.name
-        try:
-            val = keyvar.getValue()
-        except ValueError:
-            val = None
 
+        val = keyvar.getValue(doRaise=False)
         self[key] = val if type(val) is tuple else (val,)
 
     def addThreshold(self, key, threshold, ind=0, vFail=None, tlim=np.inf, callback=None, kwargs=None,
@@ -83,13 +80,13 @@ class xcuData(dict):
         self.thlist.append(th)
         return th
 
-    def waitFor(self, cmd, name, key, ind=0, inf=-np.inf, sup=np.inf, ti=1):
-        t0 = time.time() - 120
+    def waitFor(self, cmd, name, key, ind=0, inf=-np.inf, sup=np.inf, ti=1, refresh=120):
+        t0 = time.time() - refresh
         while self[key][ind] is None or not (inf < self[key][ind] < sup):
             if self.actor.boolStop[name]:
                 raise Exception("%s stop requested" % name.capitalize())
             time.sleep(ti)
-            if (time.time() - t0) > 120:
+            if (time.time() - t0) > refresh:
                 if inf != -np.inf and sup != np.inf:
                     cmd.inform("text='Waiting %g < %s (%g) < %g'" % (inf, key, self[key][ind], sup))
                 elif inf != -np.inf:
@@ -180,7 +177,7 @@ class FailExposure(list):
         list.__init__(self)
         self.extend([CmdSeq(ccd, "clearExposure"),
                      CmdSeq(ccd, "disconnect controller=fee", tempo=10),
-                     CmdSeq(ccd, "connect controller=fee", tempo=5)])
+                     CmdSeq(ccd, "connect controller=fee")])
 
 
 def roughing(state):

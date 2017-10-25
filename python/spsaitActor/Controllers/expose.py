@@ -68,8 +68,8 @@ class expose(QThread):
 
         if cmdVar.didFail:
             cmd.warn(stat)
-            self.ccdStatus[ccd].activated = False
             self.actor.processSequence(ccd, cmd, utils.FailExposure(ccd))
+            self.ccdStatus[ccd].activated = False
 
     def expose(self, cmd, expType, exptime, arms):
         enuKeys = self.actor.models['enu']
@@ -91,7 +91,7 @@ class expose(QThread):
                                                                       'timeLim': 60,
                                                                       'forUserCmd': cmd}))
 
-        self.waitAndHandle(state='integrating', timeout=20)
+        self.waitAndHandle(state='integrating', timeout=90)
 
         cmdCall(actor='enu', cmdStr="shutters expose exptime=%.3f %s" % (exptime, shutters), timeLim=exptime + 60,
                 forUserCmd=cmd)
