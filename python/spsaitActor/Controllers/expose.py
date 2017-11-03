@@ -3,8 +3,9 @@ import time
 from functools import partial
 
 import numpy as np
-import spsaitActor.utils as utils
 from actorcore.QThread import QThread
+
+import spsaitActor.utils as utils
 
 
 class CcdStatus(object):
@@ -13,11 +14,18 @@ class CcdStatus(object):
         self.activated = False
         self.state = None
 
-    def reached(self, state):
-        if self.activated and self.state != state:
-            return False
+    def reached(self, state, force=False):
+        if force:
+            if self.state == "failed":
+                return True
+
+            if self.state != state:
+                return False
         else:
-            return True
+            if self.activated and self.state != state:
+                return False
+
+        return True
 
 
 class expose(QThread):
@@ -68,8 +76,12 @@ class expose(QThread):
 
         if cmdVar.didFail:
             cmd.warn(stat)
-            self.actor.processSequence(ccd, cmd, utils.FailExposure(ccd))
             self.ccdStatus[ccd].activated = False
+            try:
+                self.actor.processSequence(ccd, cmd, utils.FailExposure(ccd))
+                self.ccdStatus[ccd].state = "idle"
+            except:
+                self.ccdStatus[ccd].state = "failed"
 
     def expose(self, cmd, expType, exptime, arms):
         enuKeys = self.actor.models['enu']
@@ -109,26 +121,30 @@ class expose(QThread):
                                                                       'forUserCmd': cmd}))
 
         self.waitAndHandle(state='reading', timeout=60)
-        self.waitAndHandle(state='idle', timeout=180)
+        self.waitAndHandle(state='idle', timeout=180, force=True)
 
-    def synchronise(self, state):
+    def synchronise(self, state, force=False):
         for key, ccdstatus in self.ccdStatus.iteritems():
-            if not ccdstatus.reached(state):
+            if not ccdstatus.reached(state, force=force):
                 return False
         return True
 
-    def waitAndHandle(self, state, timeout):
+    def waitAndHandle(self, state, timeout, ti=0.2, force=False, doRaise=False):
         t0 = time.time()
 
-        while not (self.synchronise(state) and self.ccdActive):
+        while not self.synchronise(state, force=force):
 
             if (time.time() - t0) > timeout:
                 raise Exception("ccd %s timeout" % state)
             if self.boolStop:
                 raise Exception("ccd exposure interrupted by user")
+            time.sleep(ti)
 
-        if not self.ccdActive:
+        if doRaise:
             raise Exception("ccd %s has failed" % state)
+
+        if not bool(self.ccdActive):
+            return self.waitAndHandle(state='idle', timeout=180, force=True, doRaise=True)
 
     def resetExposure(self):
         self.actor.boolStop[self.name] = False
