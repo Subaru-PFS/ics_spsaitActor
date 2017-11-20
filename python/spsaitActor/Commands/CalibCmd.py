@@ -30,6 +30,8 @@ class CalibCmd(object):
             ('imstab',
              '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [@(blue|red)] [<attenuator>] [<duplicate>] [switchOff]',
              self.doImstab),
+            ('expose', 'arcs <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff]', self.doArc),
+            ('expose', 'flats <exptime> [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff]', self.doArc),
         ]
 
         # Define typed command arguments for the above commands.
@@ -204,6 +206,48 @@ class CalibCmd(object):
             sequence = self.controller.imstability(exptime, nb, delay, arc, arm, duplicate, attenCmd)
             self.actor.processSequence(self.name, cmd, sequence)
             msg = 'Image stability Sequence is over'
+
+        except Exception as e:
+            msg = formatException(e, sys.exc_info()[2])
+
+        if arc is not None and switchOff:
+            cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
+
+        ender = cmd.fail if e else cmd.finish
+        ender("text='%s'" % msg)
+
+    @threaded
+    def doArc(self, cmd):
+        arm = ''
+        e = False
+
+        cmdKeys = cmd.cmd.keywords
+        cmdCall = self.actor.safeCall
+
+        exptime = cmdKeys['exptime'].values[0]
+        switchOff = True if "switchOff" in cmdKeys else False
+        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+
+        arm = 'red' if 'red' in cmdKeys else arm
+        arm = 'blue' if 'blue' in cmdKeys else arm
+
+        arc = None
+        arc = "neon" if "neon" in cmdKeys else arc
+        arc = "hgar" if "hgar" in cmdKeys else arc
+        arc = "xenon" if "xenon" in cmdKeys else arc
+        arc = "krypton" if "krypton" in cmdKeys else arc
+        arc = "halogen" if "flat" in cmdKeys else arc
+
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+        if duplicate <= 0:
+            raise Exception("duplicate > 0 ")
+
+        try:
+            sequence = self.controller.arcs(exptime, arc, arm, duplicate, attenCmd)
+            self.actor.processSequence(self.name, cmd, sequence)
+            msg = 'Arcs Sequence is over'
 
         except Exception as e:
             msg = formatException(e, sys.exc_info()[2])
