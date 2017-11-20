@@ -18,13 +18,11 @@ class CcdStatus(object):
         if force:
             if self.state == "failed":
                 return True
-
             if self.state != state:
                 return False
         else:
             if self.activated and self.state != state:
                 return False
-
         return True
 
 
@@ -39,6 +37,7 @@ class expose(QThread):
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
         self.ccdStatus = {}
+        self.cmdCcd = []
         self.attachCallbacks()
 
     @property
@@ -47,7 +46,7 @@ class expose(QThread):
 
     @property
     def ccdActive(self):
-        return dict([(key, ccdstatus) for key, ccdstatus in self.ccdStatus.iteritems() if ccdstatus.activated])
+        return dict([(key, ccdstatus) for key, ccdstatus in self.cmdCcd if ccdstatus.activated])
 
     def attachCallbacks(self):
         for ccd in self.actor.ccds:
@@ -84,6 +83,7 @@ class expose(QThread):
                 self.ccdStatus[ccd].state = "failed"
 
     def expose(self, cmd, expType, exptime, arms):
+        self.cmdCcd = []
         enuKeys = self.actor.models['enu']
         cmdCall = self.actor.safeCall
         shutters = 'red' if ('red' in arms and 'blue' not in arms) else ''
@@ -98,6 +98,7 @@ class expose(QThread):
         for arm in arms:
             ccd = self.actor.arm2ccd[arm]
             self.ccdStatus[ccd].activated = True
+            self.cmdCcd.append((ccd, self.ccdStatus[ccd]))
             self.actor.controllers[ccd].putMsg(partial(self.operCcd, {'actor': ccd,
                                                                       'cmdStr': "wipe",
                                                                       'timeLim': 60,
@@ -124,7 +125,7 @@ class expose(QThread):
         self.waitAndHandle(state='idle', timeout=180, force=True)
 
     def synchronise(self, state, force=False):
-        for key, ccdstatus in self.ccdStatus.iteritems():
+        for key, ccdstatus in self.cmdCcd:
             if not ccdstatus.reached(state, force=force):
                 return False
         return True
