@@ -69,6 +69,14 @@ class DetalignCmd(object):
 
         if "midPosition" in cmdKeys:
             midPosition = cmdKeys['midPosition'].values
+
+            upmargin = 300 - np.max(midPosition)
+            lowmargin = np.min(midPosition)
+            margin = np.min([upmargin, lowmargin])
+
+            lowBound = np.min(midPosition) - margin
+            upBound = np.max(midPosition) + margin
+
             startPosition = midPosition - np.min(midPosition) + lowBound
             upBound -= (np.max(midPosition) - np.min(midPosition))
 
@@ -77,7 +85,7 @@ class DetalignCmd(object):
         arc = "hgar" if "hgar" in cmdKeys else arc
         arc = "xenon" if "xenon" in cmdKeys else arc
 
-        if True in [True if exptime<=0 else False for exptime in expTimes]:
+        if True in [True if exptime <= 0 else False for exptime in expTimes]:
             raise Exception("exptime must be > 0")
 
         if nbImage <= 1:
