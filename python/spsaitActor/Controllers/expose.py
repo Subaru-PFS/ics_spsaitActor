@@ -142,10 +142,10 @@ class expose(QThread):
             time.sleep(ti)
 
         if doRaise:
-            raise Exception("ccd %s has failed" % state)
+            raise Exception("ccd %s has failed" % doRaise)
 
         if not bool(self.ccdActive):
-            return self.waitAndHandle(state='idle', timeout=180, force=True, doRaise=True)
+            return self.waitAndHandle(state='idle', timeout=180, force=True, doRaise=state)
 
     def resetExposure(self):
         self.actor.boolStop[self.name] = False
