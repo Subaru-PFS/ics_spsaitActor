@@ -38,14 +38,32 @@ class calib(QThread):
         spsait = self.actor.name
         sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
-        acquisition = (duplicate - 1) * [CmdSeq(spsait, "expose arc exptime=%.2f %s" % (exptime, arm), timeLim=500 + exptime, doRetry=True)]
-        acquisition += [
-            CmdSeq(spsait, "expose arc exptime=%.2f %s" % (exptime, arm), timeLim=500 + exptime, doRetry=True,
-                   tempo=delay)]
+        acquisition = (duplicate - 1) * [CmdSeq(spsait,
+                                                "expose arc exptime=%.2f %s" % (exptime, arm),
+                                                timeLim=500 + exptime,
+                                                doRetry=True)]
+        acquisition += [CmdSeq(spsait,
+                               "expose arc exptime=%.2f %s" % (exptime, arm),
+                               timeLim=500 + exptime,
+                               doRetry=True,
+                               tempo=delay)]
 
         sequence += (nb - 1) * acquisition
-        sequence += duplicate * [
-            CmdSeq(spsait, "expose arc exptime=%.2f %s" % (exptime, arm), timeLim=500 + exptime, doRetry=True)]
+        sequence += duplicate * [CmdSeq(spsait,
+                                        "expose arc exptime=%.2f %s" % (exptime, arm),
+                                        timeLim=500 + exptime,
+                                        doRetry=True)]
+
+        return sequence
+
+    def arcs(self, exptime, arc, arm, duplicate, attenCmd):
+        spsait = self.actor.name
+
+        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
+        sequence += duplicate * [CmdSeq(spsait,
+                                        "expose arc exptime=%.2f %s" % (exptime, arm),
+                                        timeLim=500 + exptime,
+                                        doRetry=True)]
 
         return sequence
 
