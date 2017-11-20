@@ -48,11 +48,7 @@ class calib(QThread):
                                doRetry=True,
                                tempo=delay)]
 
-        sequence += (nb - 1) * acquisition
-        sequence += duplicate * [CmdSeq(spsait,
-                                        "expose arc exptime=%.2f %s" % (exptime, arm),
-                                        timeLim=500 + exptime,
-                                        doRetry=True)]
+        sequence += nb * acquisition
 
         return sequence
 

@@ -94,15 +94,16 @@ class SpsaitActor(actorcore.ICC.ICC):
         if doReset:
             self.boolStop[name] = False
 
-        for cmdSeq in sequence:
+        for id, cmdSeq in enumerate(sequence):
             if self.boolStop[name]:
                 raise e
             self.safeCall(**(cmdSeq.build(cmd, name)))
-            for i in range(int(cmdSeq.tempo // ti)):
-                if self.boolStop[name]:
-                    raise e
-                time.sleep(ti)
-            time.sleep(cmdSeq.tempo % ti)
+            if id < len(sequence) - 1:
+                for i in range(int(cmdSeq.tempo // ti)):
+                    if self.boolStop[name]:
+                        raise e
+                    time.sleep(ti)
+                time.sleep(cmdSeq.tempo % ti)
 
     def connectionMade(self):
         if self.everConnected is False:
