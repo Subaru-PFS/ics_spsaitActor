@@ -8,8 +8,8 @@ from functools import partial
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+
 from spsaitActor.utils import threaded, formatException
-import random
 
 
 class CalibCmd(object):
@@ -30,8 +30,11 @@ class CalibCmd(object):
             ('imstab',
              '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [@(blue|red)] [<attenuator>] [<duplicate>] [switchOff]',
              self.doImstab),
-            ('expose', 'arcs <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff]', self.doArc),
+            ('expose',
+             'arcs <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff]',
+             self.doArc),
             ('expose', 'flats <exptime> [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff]', self.doArc),
+            ('expose', '<exptime> <duplicate> [@(blue|red)]', self.doExposure),
         ]
 
         # Define typed command arguments for the above commands.
@@ -257,3 +260,25 @@ class CalibCmd(object):
 
         ender = cmd.fail if e else cmd.finish
         ender("text='%s'" % msg)
+
+    @threaded
+    def doExposure(self, cmd):
+        arm = ''
+
+        cmdKeys = cmd.cmd.keywords
+
+        exptime = cmdKeys['exptime'].values[0]
+        duplicate = cmdKeys['duplicate'].values[0]
+
+        arm = 'red' if 'red' in cmdKeys else arm
+        arm = 'blue' if 'blue' in cmdKeys else arm
+
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+        if duplicate <= 0:
+            raise Exception("duplicate > 0 ")
+
+        sequence = self.controller.expose(exptime, arm, duplicate)
+        self.actor.processSequence(self.name, cmd, sequence)
+
+        cmd.finish("text='Exposure Sequence is over''")

@@ -1,6 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
+
 from spsaitActor.utils import CmdSeq
 
 
@@ -61,6 +62,15 @@ class calib(QThread):
                                         timeLim=500 + exptime,
                                         doRetry=True)]
 
+        return sequence
+
+    def expose(self, exptime, arm, duplicate):
+        spsait = self.actor.name
+
+        sequence = duplicate * [CmdSeq(spsait,
+                                       "expose exptime=%.2f %s" % (exptime, arm),
+                                       timeLim=500 + exptime,
+                                       doRetry=True)]
         return sequence
 
     def handleTimeout(self):
