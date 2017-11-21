@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+
 from spsaitActor.utils import threaded, formatException
 
 
@@ -69,16 +70,19 @@ class DetalignCmd(object):
 
         if "midPosition" in cmdKeys:
             midPosition = cmdKeys['midPosition'].values
-
-            upmargin = 300 - np.max(midPosition)
-            lowmargin = np.min(midPosition)
+            upmargin = upBound - np.max(midPosition)
+            lowmargin = np.min(midPosition) - lowBound
             margin = np.min([upmargin, lowmargin])
 
-            lowBound = np.min(midPosition) - margin
-            upBound = np.max(midPosition) + margin
+            startPosition = midPosition - margin
+            step = int(2 * margin / (nbImage - 1))
 
-            startPosition = midPosition - np.min(midPosition) + lowBound
-            upBound -= (np.max(midPosition) - np.min(midPosition))
+            offset = np.array([midPosition[0] - (startPosition[0] + i * step) for i in range(nbImage - 1)])
+            offset = np.min([off for off in offset if off > 0])
+            startPosition += offset
+
+            lowBound = np.min(startPosition)
+            upBound = np.min(startPosition) + step * (nbImage - 1)
 
         arc = None
         arc = "neon" if "neon" in cmdKeys else arc
