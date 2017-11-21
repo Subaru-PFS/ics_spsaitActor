@@ -23,8 +23,8 @@ class ExposeCmd(object):
         self.name = "expose"
         self.vocab = [
             ('expose', '[object] <exptime> [<comment>] [@(blue|red)]', self.doExposure),
-            ('expose', 'arc <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [switchOff]', self.doArc),
-            ('expose', 'flat <exptime> [<attenuator>] [@(blue|red)] [switchOff]', self.doArc),
+            ('expose', 'arc <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [switchOff] [force]', self.doArc),
+            ('expose', 'flat <exptime> [<attenuator>] [@(blue|red)] [switchOff] [force]', self.doArc),
         ]
 
         # Define typed command arguments for the above commands.
@@ -63,6 +63,7 @@ class ExposeCmd(object):
         expType = "arc"
 
         switchOff = True if "switchOff" in cmdKeys else False
+        force = True if "force" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
 
         arc = None
@@ -78,10 +79,11 @@ class ExposeCmd(object):
         if arc is not None:
             cmdCall(actor='dcb', cmdStr="%s on %s" % (arc, attenCmd), timeLim=300, forUserCmd=cmd)
 
-        flux = dcbKeys.keyVarDict['photodiode'].getValue()
+        if not force:
+            flux = dcbKeys.keyVarDict['photodiode'].getValue()
 
-        if np.isnan(flux) or flux <= 0 or self.boolStop:
-            raise Exception("Flux is null")
+            if np.isnan(flux) or flux <= 0 or self.boolStop:
+                raise Exception("Flux is null")
 
         try:
             self.controller.expose(cmd, expType, exptime, arms)

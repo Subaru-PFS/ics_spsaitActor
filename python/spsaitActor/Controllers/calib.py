@@ -35,16 +35,16 @@ class calib(QThread):
 
         return sequence
 
-    def imstability(self, exptime, nb, delay, arc, arm, duplicate, attenCmd):
+    def imstability(self, exptime, nb, delay, arc, duplicate, attenCmd, optArgs):
         spsait = self.actor.name
         sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
         acquisition = (duplicate - 1) * [CmdSeq(spsait,
-                                                "expose arc exptime=%.2f %s" % (exptime, arm),
+                                                "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
                                                 timeLim=500 + exptime,
                                                 doRetry=True)]
         acquisition += [CmdSeq(spsait,
-                               "expose arc exptime=%.2f %s" % (exptime, arm),
+                               "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
                                timeLim=500 + exptime,
                                doRetry=True,
                                tempo=delay)]
@@ -53,25 +53,17 @@ class calib(QThread):
 
         return sequence
 
-    def arcs(self, exptime, arc, arm, duplicate, attenCmd):
+    def arcs(self, exptime, arc, duplicate, attenCmd, optArgs):
         spsait = self.actor.name
 
         sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
         sequence += duplicate * [CmdSeq(spsait,
-                                        "expose arc exptime=%.2f %s" % (exptime, arm),
+                                        "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
                                         timeLim=500 + exptime,
                                         doRetry=True)]
 
         return sequence
 
-    def expose(self, exptime, arm, duplicate):
-        spsait = self.actor.name
-
-        sequence = duplicate * [CmdSeq(spsait,
-                                       "expose exptime=%.2f %s" % (exptime, arm),
-                                       timeLim=500 + exptime,
-                                       doRetry=True)]
-        return sequence
 
     def handleTimeout(self):
         """| Is called when the thread is idle

@@ -28,13 +28,12 @@ class CalibCmd(object):
             ('dark', '<ndarks> <exptime> [@(blue|red)]', self.doDarks),
             ('calib', '[<nbias>] [<ndarks>] [<exptime>] [@(blue|red)]', self.doBasicCalib),
             ('imstab',
-             '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [@(blue|red)] [<attenuator>] [<duplicate>] [switchOff]',
+             '<exptime> <nb> <delay> [@(neon|hgar|xenon)] [@(blue|red)] [<attenuator>] [<duplicate>] [switchOff] [force]',
              self.doImstab),
             ('expose',
-             'arcs <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff]',
+             'arcs <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff] [force]',
              self.doArc),
-            ('expose', 'flats <exptime> [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff]', self.doArc),
-            ('expose', '<exptime> <duplicate> [@(blue|red)]', self.doExposure),
+            ('expose', 'flats <exptime> [<attenuator>] [@(blue|red)] [<duplicate>] [switchOff] [force]', self.doArc),
         ]
 
         # Define typed command arguments for the above commands.
@@ -175,7 +174,7 @@ class CalibCmd(object):
 
     @threaded
     def doImstab(self, cmd):
-        arm = ''
+        optArgs = []
         e = False
 
         cmdKeys = cmd.cmd.keywords
@@ -184,12 +183,15 @@ class CalibCmd(object):
         exptime = cmdKeys['exptime'].values[0]
         nb = cmdKeys['nb'].values[0]
         delay = cmdKeys['delay'].values[0]
-        switchOff = True if "switchOff" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
-        arm = 'red' if 'red' in cmdKeys else arm
-        arm = 'blue' if 'blue' in cmdKeys else arm
+        switchOff = True if "switchOff" in cmdKeys else False
+
+        optArgs = ['red'] if 'red' in cmdKeys else optArgs
+        optArgs = ['blue'] if 'blue' in cmdKeys else optArgs
+
+        optArgs += (['force'] if "force" in cmdKeys else [])
 
         arc = None
         arc = "neon" if "neon" in cmdKeys else arc
@@ -206,7 +208,7 @@ class CalibCmd(object):
             raise Exception("duplicate > 0 ")
 
         try:
-            sequence = self.controller.imstability(exptime, nb, delay, arc, arm, duplicate, attenCmd)
+            sequence = self.controller.imstability(exptime, nb, delay, arc, duplicate, attenCmd, optArgs)
             self.actor.processSequence(self.name, cmd, sequence)
             msg = 'Image stability Sequence is over'
 
@@ -221,7 +223,7 @@ class CalibCmd(object):
 
     @threaded
     def doArc(self, cmd):
-        arm = ''
+        optArgs = []
         e = False
 
         cmdKeys = cmd.cmd.keywords
@@ -232,8 +234,10 @@ class CalibCmd(object):
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
-        arm = 'red' if 'red' in cmdKeys else arm
-        arm = 'blue' if 'blue' in cmdKeys else arm
+        optArgs = ['red'] if 'red' in cmdKeys else optArgs
+        optArgs = ['blue'] if 'blue' in cmdKeys else optArgs
+
+        optArgs+= (['force'] if "force" in cmdKeys else [])
 
         arc = None
         arc = "neon" if "neon" in cmdKeys else arc
@@ -248,7 +252,7 @@ class CalibCmd(object):
             raise Exception("duplicate > 0 ")
 
         try:
-            sequence = self.controller.arcs(exptime, arc, arm, duplicate, attenCmd)
+            sequence = self.controller.arcs(exptime, arc, duplicate, attenCmd, optArgs)
             self.actor.processSequence(self.name, cmd, sequence)
             msg = 'Arcs Sequence is over'
 
@@ -260,25 +264,3 @@ class CalibCmd(object):
 
         ender = cmd.fail if e else cmd.finish
         ender("text='%s'" % msg)
-
-    @threaded
-    def doExposure(self, cmd):
-        arm = ''
-
-        cmdKeys = cmd.cmd.keywords
-
-        exptime = cmdKeys['exptime'].values[0]
-        duplicate = cmdKeys['duplicate'].values[0]
-
-        arm = 'red' if 'red' in cmdKeys else arm
-        arm = 'blue' if 'blue' in cmdKeys else arm
-
-        if exptime <= 0:
-            raise Exception("exptime must be > 0")
-        if duplicate <= 0:
-            raise Exception("duplicate > 0 ")
-
-        sequence = self.controller.expose(exptime, arm, duplicate)
-        self.actor.processSequence(self.name, cmd, sequence)
-
-        cmd.finish("text='Exposure Sequence is over''")
