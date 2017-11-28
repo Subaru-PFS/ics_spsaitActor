@@ -244,7 +244,7 @@ class CalibCmd(object):
         arc = "hgar" if "hgar" in cmdKeys else arc
         arc = "xenon" if "xenon" in cmdKeys else arc
         arc = "krypton" if "krypton" in cmdKeys else arc
-        arc = "halogen" if "flat" in cmdKeys else arc
+        arc = "halogen" if "flats" in cmdKeys else arc
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
