@@ -56,9 +56,10 @@ class calib(QThread):
     def arcs(self, exptime, arc, duplicate, attenCmd, optArgs):
         spsait = self.actor.name
 
+        exptype = "flat" if arc=="halogen" else "arc"
         sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
         sequence += duplicate * [CmdSeq(spsait,
-                                        "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
+                                        "expose %s exptime=%.2f %s" % (exptype, exptime, ' '.join(optArgs)),
                                         timeLim=500 + exptime,
                                         doRetry=True)]
 

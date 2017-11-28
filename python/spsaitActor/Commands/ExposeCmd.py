@@ -60,7 +60,7 @@ class ExposeCmd(object):
         arms = arms[1:] if 'red' in cmdKeys else arms
 
         exptime = cmdKeys['exptime'].values[0]
-        expType = "arc"
+        expType = "flat" if "flat" in cmdKeys else "arc"
 
         switchOff = True if "switchOff" in cmdKeys else False
         force = True if "force" in cmdKeys else False
