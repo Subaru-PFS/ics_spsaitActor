@@ -24,10 +24,10 @@ class calib(QThread):
         return 2 * [CmdSeq('dcb', "labsphere attenuator=0")]
 
     def bias(self, ccd, nbias):
-        return [CmdSeq(ccd, "expose nbias=%i" % nbias, timeLim=500, doRetry=True)]
+        return [CmdSeq(ccd, "expose nbias=%i" % nbias, timeLim=120*nbias, doRetry=True)]
 
     def dark(self, ccd, exptime, ndarks):
-        return ndarks * [CmdSeq(ccd, "expose darks=%.2f" % exptime, timeLim=exptime + 500, doRetry=True)]
+        return ndarks * [CmdSeq(ccd, "expose darks=%.2f" % exptime, timeLim=exptime + 120, doRetry=True)]
 
     def calibration(self, ccd, nbias, ndarks, exptime):
         sequence = self.bias(ccd, nbias)
