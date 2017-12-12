@@ -19,8 +19,10 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', '<nb> <exptime> <shift> [@(microns|pixels)] [@(blue|red)] [<duplicate>] [<attenuator>] [switchOff]',
-             self.dither),
+            ('dither', 'flat <nb> <exptime> <shift> [@(microns|pixels)] [@(blue|red)] [<duplicate>]'
+                       ' [<attenuator>] [switchOff]', self.ditherFlat),
+            ('dither', 'psf <exptime> <shift> [@(microns|pixels)] [@(blue|red)] [<duplicate>]'
+                       ' [@(neon|hgar|xenon|krypton)] [<attenuator>] [switchOff] [force]', self.ditherPsf)
 
         ]
 
@@ -42,7 +44,7 @@ class DitherCmd(object):
             raise RuntimeError('%s controller is not connected.' % self.name)
 
     @threaded
-    def dither(self, cmd):
+    def ditherFlat(self, cmd):
         ex = False
         arm = ''
 
@@ -52,7 +54,7 @@ class DitherCmd(object):
 
         nbImage = cmdKeys['nb'].values[0]
         exptime = cmdKeys['exptime'].values[0]
-        fact = 0.034697 if "pixels" in cmdKeys else 0.001
+        fact = 0.03477755 if "pixels" in cmdKeys else 0.001
         shift = cmdKeys['shift'].values[0] * fact
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
         switchOff = True if "switchOff" in cmdKeys else False
@@ -68,16 +70,59 @@ class DitherCmd(object):
         if nbImage <= 0:
             raise Exception("nbImage > 0")
 
-        sequence = self.controller.dithering(x, y, z, u, v, w, shift, nbImage, exptime, arm, duplicate, attenCmd)
+        sequence = self.controller.ditherFlat(x, y, z, u, v, w, shift, nbImage, exptime, arm, duplicate, attenCmd)
 
         try:
             self.actor.processSequence(self.name, cmd, sequence)
-            msg = 'Dithering sequence is over'
+            msg = 'Dithered Flat sequence is over'
         except Exception as ex:
             msg = formatException(ex, sys.exc_info()[2])
 
         if switchOff:
             cmdCall(actor='dcb', cmdStr="halogen off", forUserCmd=cmd)
+
+        ender = cmd.fail if ex else cmd.finish
+        ender("text='%s'" % msg)
+
+
+    @threaded
+    def ditherPsf(self, cmd):
+        ex = False
+        optArgs = []
+
+        cmdKeys = cmd.cmd.keywords
+        cmdCall = self.actor.safeCall
+
+        exptime = cmdKeys['exptime'].values[0]
+        fact = 0.03477755 if "pixels" in cmdKeys else 0.001
+        shift = cmdKeys['shift'].values[0] * fact
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+        switchOff = True if "switchOff" in cmdKeys else False
+        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
+
+        optArgs = ['red'] if 'red' in cmdKeys else optArgs
+        optArgs = ['blue'] if 'blue' in cmdKeys else optArgs
+
+        optArgs += (['force'] if "force" in cmdKeys else [])
+
+        arc = None
+        arc = "neon" if "neon" in cmdKeys else arc
+        arc = "hgar" if "hgar" in cmdKeys else arc
+        arc = "xenon" if "xenon" in cmdKeys else arc
+
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+
+        sequence = self.controller.ditherPsf(shift, exptime, arc, duplicate, attenCmd, optArgs)
+
+        try:
+            self.actor.processSequence(self.name, cmd, sequence)
+            msg = 'Dithering PSF sequence is over'
+        except Exception as ex:
+            msg = formatException(ex, sys.exc_info()[2])
+
+        if arc is not None and switchOff:
+            cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
 
         ender = cmd.fail if ex else cmd.finish
         ender("text='%s'" % msg)
