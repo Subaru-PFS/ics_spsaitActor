@@ -1,7 +1,6 @@
 import logging
 
 from actorcore.QThread import QThread
-
 from spsaitActor.utils import CmdSeq
 
 
@@ -24,7 +23,7 @@ class calib(QThread):
         return 2 * [CmdSeq('dcb', "labsphere attenuator=0")]
 
     def bias(self, ccd, nbias):
-        return [CmdSeq(ccd, "expose nbias=%i" % nbias, timeLim=120*nbias, doRetry=True)]
+        return [CmdSeq(ccd, "expose nbias=%i" % nbias, timeLim=120 * nbias, doRetry=True)]
 
     def dark(self, ccd, exptime, ndarks):
         return ndarks * [CmdSeq(ccd, "expose darks=%.2f" % exptime, timeLim=exptime + 120, doRetry=True)]
@@ -56,15 +55,15 @@ class calib(QThread):
     def arcs(self, exptime, arc, duplicate, attenCmd, optArgs):
         spsait = self.actor.name
 
-        exptype = "flat" if arc=="halogen" else "arc"
-        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
+        forceCmd = 'force' if 'force' in optArgs else ''
+        exptype = "flat" if arc == "halogen" else "arc"
+        sequence = [CmdSeq('dcb', "%s on %s %s" % (arc, attenCmd, forceCmd), doRetry=True)] if arc is not None else []
         sequence += duplicate * [CmdSeq(spsait,
                                         "expose %s exptime=%.2f %s" % (exptype, exptime, ' '.join(optArgs)),
                                         timeLim=500 + exptime,
                                         doRetry=True)]
 
         return sequence
-
 
     def handleTimeout(self):
         """| Is called when the thread is idle

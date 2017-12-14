@@ -237,7 +237,7 @@ class CalibCmd(object):
         optArgs = ['red'] if 'red' in cmdKeys else optArgs
         optArgs = ['blue'] if 'blue' in cmdKeys else optArgs
 
-        optArgs+= (['force'] if "force" in cmdKeys else [])
+        optArgs += (['force'] if "force" in cmdKeys else [])
 
         arc = None
         arc = "neon" if "neon" in cmdKeys else arc
