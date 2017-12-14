@@ -65,6 +65,7 @@ class ExposeCmd(object):
         switchOff = True if "switchOff" in cmdKeys else False
         force = True if "force" in cmdKeys else False
         attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
+        forceCmd = 'force' if force else ''
 
         arc = None
         arc = "neon" if "neon" in cmdKeys else arc
@@ -77,7 +78,7 @@ class ExposeCmd(object):
             raise Exception("exptime must be > 0")
 
         if arc is not None:
-            cmdCall(actor='dcb', cmdStr="%s on %s" % (arc, attenCmd), timeLim=300, forUserCmd=cmd)
+            cmdCall(actor='dcb', cmdStr="%s on %s %s" % (arc, attenCmd, forceCmd), timeLim=300, forUserCmd=cmd)
 
         if not force:
             flux = dcbKeys.keyVarDict['photodiode'].getValue()
