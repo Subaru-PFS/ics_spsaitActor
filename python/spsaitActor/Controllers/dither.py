@@ -47,15 +47,15 @@ class dither(QThread):
         spsait = self.actor.name
         sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
-        positions = np.array([(0, -0.5, -0.5, 0, 0, 0),
-                              (0, -0.5, 0, 0, 0, 0),
-                              (0, -0.5, 0.5, 0, 0, 0),
-                              (0, 0, -0.5, 0, 0, 0),
+        positions = np.array([(0, -1, -1, 0, 0, 0),
+                              (0, -1, 0, 0, 0, 0),
+                              (0, -1, 1, 0, 0, 0),
+                              (0, 0, -1, 0, 0, 0),
                               (0, 0, 0, 0, 0, 0),
-                              (0, 0, 0.5, 0, 0, 0),
-                              (0, 0.5, -0.5, 0, 0, 0),
-                              (0, 0.5, 0, 0, 0, 0),
-                              (0, 0.5, 0.5, 0, 0, 0)])
+                              (0, 0, 1, 0, 0, 0),
+                              (0, 1, -1, 0, 0, 0),
+                              (0, 1, 0, 0, 0, 0),
+                              (0, 1, 1, 0, 0, 0)])
 
         positions = positions * shift
 
