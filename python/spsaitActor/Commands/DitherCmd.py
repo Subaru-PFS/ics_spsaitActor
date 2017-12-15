@@ -54,7 +54,7 @@ class DitherCmd(object):
 
         nbImage = cmdKeys['nb'].values[0]
         exptime = cmdKeys['exptime'].values[0]
-        fact = 1./30 if "pixels" in cmdKeys else 0.001
+        fact = 1./(29.4) if "pixels" in cmdKeys else 0.001
         shift = cmdKeys['shift'].values[0] * fact
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
         switchOff = True if "switchOff" in cmdKeys else False
@@ -94,7 +94,7 @@ class DitherCmd(object):
         cmdCall = self.actor.safeCall
 
         exptime = cmdKeys['exptime'].values[0]
-        fact = 1./30 if "pixels" in cmdKeys else 0.001
+        fact = 1./(29.4) if "pixels" in cmdKeys else 0.001
         shift = cmdKeys['shift'].values[0] * fact
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
         switchOff = True if "switchOff" in cmdKeys else False
