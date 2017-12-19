@@ -81,7 +81,7 @@ class ExposeCmd(object):
             cmdCall(actor='dcb', cmdStr="%s on %s %s" % (arc, attenCmd, forceCmd), timeLim=300, forUserCmd=cmd)
 
         if not force:
-            flux = dcbKeys.keyVarDict['photodiode'].getValue()
+            flux = dcbKeys.keyVarDict['fluxmedian'].getValue()
 
             if np.isnan(flux) or flux <= 0 or self.boolStop:
                 raise Exception("Flux is null")
