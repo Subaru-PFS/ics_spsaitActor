@@ -55,8 +55,9 @@ class defocus(QThread):
                                                                                           ' '.join(optArgs)),
                             timeLim=(exptime + 200) * 9 * duplicate)]
 
-        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (0, 0, 0, 0, 0, 0))]
-        focus = 0
+        focus = 0 if nbPosition % 2 else focus
+        sequence += [
+            CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (focus, 0, 0, 0, 0, 0))]
 
         for i in range(nbPosition / 2):
             sequence += [CmdSeq('enu', "slit focus pix=%.5f" % step)]
