@@ -17,8 +17,8 @@ class defocus(QThread):
         self.logger.setLevel(loglevel)
 
     def getExptime(self, exptime, focus):
-        pmean = [4.30234804, 1.76488818, 1]
-        return exptime * np.polyval(np.poly1d(pmean), focus)
+        pmean = np.array([ 0.03920849,  5.04702675, -1.24206109,  2.611892])
+        return exptime * np.polyval(pmean, focus)
 
     def defocus(self, exptime, arc, attenCmd, nbPosition, duplicate, lowBound, upBound, optArgs):
         spsait = self.actor.name
