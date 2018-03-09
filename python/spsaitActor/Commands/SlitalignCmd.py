@@ -91,7 +91,7 @@ class SlitalignCmd(object):
         time.sleep(1.5)
         try:
             px, py = centroid(fits.open('/data/ait/slit-align/adjust.fits', "readonly"))
-            print px, py
+            print (px, py)
         except:
             cmd.fail("text='could not find centroid'")
             return

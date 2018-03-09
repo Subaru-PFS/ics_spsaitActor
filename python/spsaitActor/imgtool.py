@@ -2,7 +2,7 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 
-def twoD_Gaussian((x, y), amplitude, xo, yo, sigma_x, sigma_y, offset):
+def twoD_Gaussian(x, y, amplitude, xo, yo, sigma_x, sigma_y, offset):
     theta = 0
     xo = float(xo)
     yo = float(yo)

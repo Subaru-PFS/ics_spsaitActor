@@ -67,7 +67,7 @@ class expose(QThread):
     def operCcd(self, kwargs):
 
         cmd = kwargs["forUserCmd"]
-        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.iterkeys() else kwargs["timeLim"]
+        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.keys() else kwargs["timeLim"]
         ccd = kwargs["actor"]
 
         cmdVar = self.actor.cmdr.call(**kwargs)

@@ -63,13 +63,13 @@ class SpsaitActor(actorcore.ICC.ICC):
             self.controllers[ccd] = thread
 
     def createBool(self):
-        for controller in self.controllers.itervalues():
+        for controller in self.controllers.values():
             self.boolStop[controller] = False
 
     def safeCall(self, **kwargs):
 
         cmd = kwargs["forUserCmd"]
-        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.iterkeys() else kwargs["timeLim"]
+        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.keys() else kwargs["timeLim"]
 
         cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
 
