@@ -2,6 +2,7 @@
 
 
 
+from builtins import object
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 

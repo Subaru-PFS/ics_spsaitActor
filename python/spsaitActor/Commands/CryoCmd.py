@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import division
+from builtins import object
 import time
 import numpy as np
 import opscore.protocols.keys as keys
@@ -123,7 +125,7 @@ class CryoCmd(object):
         cmdKeys = cmd.cmd.keywords
         arm = "blue" if "blue" in cmdKeys else "red"
         leaktime = 30 if "noleakback" in cmdKeys else 600
-        refslope = -20e-6 / 600
+        refslope = (-20e-6/ 600)
 
         xcuActor, xcuKeys = self.controller.xcuKeys(arm)
         xcuData = self.controller.xcuDatas[xcuActor]
@@ -233,7 +235,7 @@ class CryoCmd(object):
                     raise Exception("%s stop requested" % self.name.capitalize())
 
                 if (time.time() - tCurrent) > 20:
-                    slope = (xcuData.pressure - pCurrent) / (time.time() - tCurrent)
+                    slope = ((xcuData.pressure - pCurrent)/ (time.time() - tCurrent))
                     if slope < refslope:
                         break
                     tCurrent, pCurrent = time.time(), xcuData.pressure

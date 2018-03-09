@@ -1,5 +1,9 @@
 # !/usr/bin/env python
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import zip
+from builtins import range
 import argparse
 import logging
 import time
@@ -63,13 +67,13 @@ class SpsaitActor(actorcore.ICC.ICC):
             self.controllers[ccd] = thread
 
     def createBool(self):
-        for controller in self.controllers.values():
+        for controller in list(self.controllers.values()):
             self.boolStop[controller] = False
 
     def safeCall(self, **kwargs):
 
         cmd = kwargs["forUserCmd"]
-        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.keys() else kwargs["timeLim"]
+        kwargs["timeLim"] = 300 if "timeLim" not in list(kwargs.keys()) else kwargs["timeLim"]
 
         cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
 

@@ -1,3 +1,5 @@
+from __future__ import division
+
 import numpy as np
 from scipy.optimize import curve_fit
 
@@ -7,8 +9,8 @@ def twoD_Gaussian(x, y, amplitude, xo, yo, sigma_x, sigma_y, offset):
     xo = float(xo)
     yo = float(yo)
     a = (np.cos(theta) ** 2) / (2 * sigma_x ** 2) + (np.sin(theta) ** 2) / (2 * sigma_y ** 2)
-    b = -(np.sin(2 * theta)) / (4 * sigma_x ** 2) + (np.sin(2 * theta)) / (4 * sigma_y ** 2)
-    c = (np.sin(theta) ** 2) / (2 * sigma_x ** 2) + (np.cos(theta) ** 2) / (2 * sigma_y ** 2)
+    b = (-(np.sin(2 * theta)) / (4 * sigma_x ** 2)) + ((np.sin(2 * theta)) / (4 * sigma_y ** 2))
+    c = ((np.sin(theta) ** 2) / (2 * sigma_x ** 2)) + ((np.cos(theta) ** 2) / (2 * sigma_y ** 2))
     g = offset + amplitude * np.exp(- (a * ((x - xo) ** 2) + 2 * b * (x - xo) * (y - yo)
                                        + c * ((y - yo) ** 2)))
     return g.ravel()
@@ -50,9 +52,9 @@ def centroid(hdulist):
     x = np.linspace(0, roi_size, roi_size)
     y = np.linspace(0, roi_size, roi_size)
     xx, yy = np.meshgrid(x, y)
-    cut_data = data[cx - roi_size / 2:cx + roi_size / 2, cy - roi_size / 2:cy + roi_size / 2]
+    cut_data = data[cx - (roi_size / 2):cx + (roi_size / 2), cy - (roi_size / 2):cy + (roi_size / 2)]
 
-    initial_guess = (np.max(cut_data), roi_size / 2, roi_size / 2, 25, 25, 0)
+    initial_guess = (np.max(cut_data), (roi_size / 2), (roi_size / 2), 25, 25, 0)
     popt, pcov = curve_fit(twoD_Gaussian, (xx, yy), cut_data.ravel(), p0=initial_guess)
 
-    return popt[1] + cy - roi_size / 2, popt[2] + cx - roi_size / 2
+    return popt[1] + cy - (roi_size / 2), popt[2] + cx - (roi_size / 2)

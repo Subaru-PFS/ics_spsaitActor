@@ -1,3 +1,6 @@
+from __future__ import division
+from builtins import range
+
 import logging
 
 from actorcore.QThread import QThread
@@ -16,7 +19,7 @@ class detalign(QThread):
         self.logger.setLevel(loglevel)
 
     def buildThroughFocus(self, arc, attenCmd, nbImage, exptimes, lowBound, upBound, motor, startPosition, arms):
-        step = (upBound - lowBound) / (nbImage - 1)
+        step = ((upBound - lowBound)/ (nbImage - 1))
         xcus = [self.actor.arm2xcu[arm] for arm in arms]
         spsait = self.actor.name
         arm = '' if ('blue' in arms and 'red' in arms) else arms[0]

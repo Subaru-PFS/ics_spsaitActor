@@ -1,3 +1,4 @@
+from builtins import range
 import logging
 
 from actorcore.QThread import QThread

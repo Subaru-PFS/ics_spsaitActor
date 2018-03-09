@@ -1,3 +1,5 @@
+from builtins import str
+from builtins import object
 import sys
 import time
 import traceback as tb
