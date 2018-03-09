@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 
+from builtins import object
 import sys
 import time
 from functools import partial

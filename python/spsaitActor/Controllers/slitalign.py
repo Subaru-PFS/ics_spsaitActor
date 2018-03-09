@@ -1,3 +1,8 @@
+from __future__ import division
+from builtins import str
+from builtins import zip
+from builtins import range
+
 import logging
 
 import numpy as np
@@ -26,9 +31,9 @@ class slitalign(QThread):
 
         offset = 12
         linear = np.ones(nbImage - 1) * (slitUp - slitLow) / (nbImage - 1)
-        coeff = offset + (np.arange(nbImage - 1) - (nbImage - 1) / 2) ** 2
-        k = sum(coeff * linear) / (slitUp - slitLow)
-        coeff = coeff / k
+        coeff = offset + (np.arange(nbImage - 1) - ((nbImage - 1)/ 2)) ** 2
+        k = (sum(coeff * linear)/ (slitUp - slitLow))
+        coeff = (coeff/ k)
         step = coeff * linear
 
         sequence = [CmdSeq('afl', 'switch off'), CmdSeq('enu', "slit move absolute %s" % slitStart)]

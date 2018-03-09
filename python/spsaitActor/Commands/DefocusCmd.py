@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 
+from builtins import object
 import sys
 
 import opscore.protocols.keys as keys

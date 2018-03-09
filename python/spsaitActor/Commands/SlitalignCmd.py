@@ -1,18 +1,20 @@
 #!/usr/bin/env python
 
 
-import sys
+from __future__ import print_function
+from __future__ import division
+from builtins import zip
+from builtins import object
+
 import time
 
 import opscore.protocols.keys as keys
-import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-import opscore.protocols.types as types
+
 from astropy.io import fits
 from imgtool import centroid
-from spsaitActor.utils import threaded
-from spsaitActor.utils import threaded, formatException
 
+from spsaitActor.utils import threaded, formatException
 
 class SlitalignCmd(object):
     def __init__(self, actor):
@@ -91,14 +93,14 @@ class SlitalignCmd(object):
         time.sleep(1.5)
         try:
             px, py = centroid(fits.open('/data/ait/slit-align/adjust.fits', "readonly"))
-            print px, py
+            print((px, py))
         except:
             cmd.fail("text='could not find centroid'")
             return
 
         cx, cy = 1215, 613.3
-        c_Ry = 0.1 / 816.  # deg/px
-        c_Rz = 0.1 / 1157.23
+        c_Ry = (0.1/ 816.)  # deg/px
+        c_Rz = (0.1/ 1157.23)
         dY = (cx - px) * c_Ry
         dZ = (py - cy) * c_Rz
 

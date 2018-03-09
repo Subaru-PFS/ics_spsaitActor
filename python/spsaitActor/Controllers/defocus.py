@@ -1,3 +1,5 @@
+from __future__ import division
+from builtins import range
 import logging
 
 import numpy as np
@@ -25,7 +27,7 @@ class defocus(QThread):
 
         sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
-        step = (upBound - lowBound) / (nbPosition - 1)
+        step = ((upBound - lowBound)/ (nbPosition - 1))
 
         sequence += [
             CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (lowBound, 0, 0, 0, 0, 0))]
@@ -37,7 +39,7 @@ class defocus(QThread):
                                         timeLim=500 + cexptime,
                                         doRetry=True)]
 
-        for i in range(nbPosition / 2 - 1):
+        for i in range((nbPosition/ 2) - 1):
             sequence += [CmdSeq('enu', "slit focus pix=%.5f" % step)]
 
             focus += step
@@ -59,7 +61,7 @@ class defocus(QThread):
         sequence += [
             CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (focus, 0, 0, 0, 0, 0))]
 
-        for i in range(nbPosition / 2):
+        for i in range((nbPosition/ 2)):
             sequence += [CmdSeq('enu', "slit focus pix=%.5f" % step)]
 
             focus += step
