@@ -164,13 +164,12 @@ class CmdSeq(object):
         self.doRetry = doRetry
         self.tempo = tempo
 
-    def build(self, cmd, keyStop):
+    def build(self, cmd):
         return {"actor": self.actor,
                 "cmdStr": self.cmdStr,
                 "forUserCmd": cmd,
                 "timeLim": self.timeLim,
                 "doRetry": self.doRetry,
-                "keyStop": keyStop,
                 }
 
 

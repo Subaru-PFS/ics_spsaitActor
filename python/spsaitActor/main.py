@@ -1,9 +1,6 @@
 # !/usr/bin/env python
 
-from future import standard_library
-standard_library.install_aliases()
-from builtins import zip
-from builtins import range
+from opscore.utility.qstr import qstr
 import argparse
 import logging
 import time
@@ -19,95 +16,69 @@ class SpsaitActor(actorcore.ICC.ICC):
         # This sets up the connections to/from the hub, the logger, and the twisted reactor.
         #
         self.name = name
-        ccd = "ccd"
-        xcu = "xcu"
-        arms = ['blue', 'red']
 
-        self.ccds = ['%s_%s%i' % (ccd, cam[0], self.specId) for cam in arms]
-        self.xcus = ['%s_%s%i' % (xcu, cam[0], self.specId) for cam in arms]
+        specIds = [i for i in range(1, 5)]
+        allcams = ['b%i' % i for i in specIds] + ['r%i' % i for i in specIds]
 
-        self.roughHack = '%s_r1' % xcu
-        self.xcus += ([self.roughHack] if self.specId == 0 else [])
-        self.arm2ccd = dict([(arm, ccd) for arm, ccd in zip(arms, self.ccds)])
-        self.arm2xcu = dict([(arm, xcu) for arm, xcu in zip(arms, self.xcus)])
-        self.ccd2arm = dict([(ccd, arm) for arm, ccd in zip(arms, self.ccds)])
+        self.ccds = ['ccd_%s' % cam for cam in allcams]
+        self.cam2ccd = dict([(cam, ccd) for cam, ccd in zip(allcams, self.ccds)])
+
+        self.enus = ['enu_sm%i' % i for i in specIds]
 
         actorcore.ICC.ICC.__init__(self,
                                    name,
                                    productName=productName,
                                    configFile=configFile,
-                                   modelNames=['enu', 'dcb'] + self.xcus + self.ccds)
+                                   modelNames=['dcb'] + self.ccds + self.enus)
 
         self.logger.setLevel(logLevel)
 
         self.everConnected = False
-
         self.monitors = dict()
-
         self.statusLoopCB = self.statusLoop
 
-        self.expTime = 1.0
-        self.boolStop = {}
-        self.createThreads()
-        self.createBool()
+        self.doStop = False
 
-    @property
-    def specId(self):
-        return int(self.name.split('_sm')[-1])
-
-    @property
-    def jobsDone(self):
-        return False if True in [thread.showOn for thread in [self.controllers[ccd] for ccd in self.ccds]] else True
-
-    def createThreads(self):
-        for ccd in self.ccds:
-            thread = QThread(self, ccd, timeout=2)
-            thread.start()
-            thread.handleTimeout = partial(self.sleep, thread)
-            self.controllers[ccd] = thread
-
-    def createBool(self):
-        for controller in list(self.controllers.values()):
-            self.boolStop[controller] = False
-
-    def safeCall(self, **kwargs):
+    def safeCall(self, doRetry=False, **kwargs):
 
         cmd = kwargs["forUserCmd"]
         kwargs["timeLim"] = 300 if "timeLim" not in list(kwargs.keys()) else kwargs["timeLim"]
 
-        cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
-
-        doRetry = kwargs.pop("doRetry", None)
-        keyStop = kwargs.pop("keyStop", None)
+        # cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
 
         cmdVar = self.cmdr.call(**kwargs)
 
-        stat = cmdVar.lastReply.canonical().split(" ", 4)[-1]
-
+        # stat = cmdVar.lastReply.canonical().split(" ", 4)[-1]
         if cmdVar.didFail:
-            cmd.warn(stat)
-            if not doRetry or self.boolStop[keyStop]:
-                raise Exception("%s has failed" % cmdStr.upper())
+            # cmd.warn(stat)
+            if not doRetry or self.doStop:
+                raise Exception('')
+
+                # raise Exception("%s has failed" % cmdStr.upper())
             else:
-                time.sleep(8)
+                time.sleep(10)
                 self.safeCall(**kwargs)
 
-    def processSequence(self, name, cmd, sequence, ti=0.2, doReset=True):
-
-        e = Exception("%s stop requested" % name.capitalize())
-        if doReset:
-            self.boolStop[name] = False
+    def processSequence(self, cmd, sequence, ti=0.2):
 
         for id, cmdSeq in enumerate(sequence):
-            if self.boolStop[name]:
-                raise e
-            self.safeCall(**(cmdSeq.build(cmd, name)))
-            if id < len(sequence) - 1:
-                for i in range(int(cmdSeq.tempo // ti)):
-                    if self.boolStop[name]:
-                        raise e
-                    time.sleep(ti)
-                time.sleep(cmdSeq.tempo % ti)
+            self.safeCall(**(cmdSeq.build(cmd)))
+
+            for i in range(int(cmdSeq.tempo // ti)):
+                if self.doStop:
+                    raise Exception('Stop requested')
+                time.sleep(ti)
+
+            time.sleep(cmdSeq.tempo % ti)
+
+    def strTraceback(self, e):
+
+        oneLiner = self.cmdTraceback(e)
+        return qstr("command failed: %s" % oneLiner)
+
+    def abortShutters(self, cmd):
+        for enu in self.enus:
+            cmdVar = self.cmdr.call(actor=enu, cmdStr="shutters abort", forUserCmd=cmd)
 
     def connectionMade(self):
         if self.everConnected is False:
