@@ -1,13 +1,11 @@
 # !/usr/bin/env python
 
-from opscore.utility.qstr import qstr
 import argparse
 import logging
+import sqlite3
 import time
-from functools import partial
 
 import actorcore.ICC
-from actorcore.QThread import QThread
 from twisted.internet import reactor
 
 
@@ -17,7 +15,7 @@ class SpsaitActor(actorcore.ICC.ICC):
         #
         self.name = name
 
-        specIds = [i for i in range(1, 5)]
+        specIds = [i+1 for i in range(1)]
         allcams = ['b%i' % i for i in specIds] + ['r%i' % i for i in specIds]
 
         self.ccds = ['ccd_%s' % cam for cam in allcams]
@@ -29,7 +27,7 @@ class SpsaitActor(actorcore.ICC.ICC):
                                    name,
                                    productName=productName,
                                    configFile=configFile,
-                                   modelNames=['dcb'] + self.ccds + self.enus)
+                                   modelNames=['dcb', 'seqno'] + self.ccds + self.enus)
 
         self.logger.setLevel(logLevel)
 
@@ -38,6 +36,7 @@ class SpsaitActor(actorcore.ICC.ICC):
         self.statusLoopCB = self.statusLoop
 
         self.doStop = False
+        self.dbEnginePath = '//%s/ait-operation.db' % self.config.get(self.name, 'aitdb')
 
     def safeCall(self, doRetry=False, **kwargs):
 
@@ -71,10 +70,19 @@ class SpsaitActor(actorcore.ICC.ICC):
 
             time.sleep(cmdSeq.tempo % ti)
 
-    def strTraceback(self, e):
 
-        oneLiner = self.cmdTraceback(e)
-        return qstr("command failed: %s" % oneLiner)
+    def getSeqno(self, cmd):
+        cmdVar = self.cmdr.call(actor='seqno',
+                                cmdStr='getVisit',
+                                forUserCmd=cmd,
+                                timeLim=10)
+
+        if cmdVar.didFail or not cmdVar.isDone:
+            raise ValueError('getVisit has failed')
+
+        visit = cmdVar.lastReply.keywords['visit'].values[0]
+
+        return int(visit)
 
     def abortShutters(self, cmd):
         for enu in self.enus:
@@ -114,9 +122,6 @@ class SpsaitActor(actorcore.ICC.ICC):
             self.statusLoopCB(controller)
         else:
             cmd.warn('text="adjusted %s loop to %gs"' % (controller, self.monitors[controller]))
-
-    def sleep(self, thread):
-        thread.showOn = False
 
 
 def main():
