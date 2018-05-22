@@ -36,7 +36,6 @@ class SpsaitActor(actorcore.ICC.ICC):
         self.statusLoopCB = self.statusLoop
 
         self.doStop = False
-        self.dbEnginePath = '//%s/ait-operation.db' % self.config.get(self.name, 'aitdb')
 
     def safeCall(self, doRetry=False, **kwargs):
 

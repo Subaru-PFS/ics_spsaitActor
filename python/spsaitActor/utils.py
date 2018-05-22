@@ -1,5 +1,3 @@
-from builtins import str
-from builtins import object
 import sys
 import time
 import traceback as tb
@@ -7,6 +5,52 @@ from functools import partial
 
 import numpy as np
 from actorcore.QThread import QThread
+import sqlite3
+
+
+class Logbook:
+    engine = '///home/arnaud/data/ait/ait-operation.db'
+
+    @staticmethod
+    def newExposure(exposureId, site, visit, obsdate, exptime, exptype, quality):
+
+        sqlRequest = """INSERT INTO Exposure VALUES ('%s','%s', %i, '%s', %.3f, '%s', '%s');""" % (exposureId,
+                                                                                                   site,
+                                                                                                   visit,
+                                                                                                   obsdate,
+                                                                                                   exptime,
+                                                                                                   exptype,
+                                                                                                   quality)
+        Logbook.newRow(sqlRequest=sqlRequest)
+
+    @staticmethod
+    def newCamExposure(camExposureId, exposureId, smId, arm):
+        sqlRequest = """INSERT INTO CamExposure VALUES ('%s','%s', %i, '%s');""" % (camExposureId,
+                                                                                    exposureId,
+                                                                                    smId,
+                                                                                    arm)
+
+        Logbook.newRow(sqlRequest=sqlRequest)
+
+    @staticmethod
+    def newRow(sqlRequest):
+        conn = sqlite3.connect(Logbook.engine)
+        c = conn.cursor()
+
+        try:
+            c.execute(sqlRequest)
+            conn.commit()
+
+        except sqlite3.IntegrityError:
+            pass
+
+    @staticmethod
+    def getInfo(visit):
+        conn = sqlite3.connect(Logbook.engine)
+        c = conn.cursor()
+        c.execute(
+            '''select visit,exptype,spectrograph,arm,quality from Exposure inner join CamExposure on Exposure.exposureId=CamExposure.exposureId where visit=%i''' % visit)
+        return c.fetchall()
 
 
 class Threshold(QThread):
@@ -62,7 +106,7 @@ class xcuData(dict):
         dict.__init__(self)
         self.actor = actor
         self.xcuKeys = actor.models[xcu]
-        self.thlist =[]
+        self.thlist = []
 
         for key in ['pressure', 'turboSpeed', 'gatevalve', 'ionpump1', 'ionpump2', 'coolerTemps',
                     'heaters', 'temps', 'roughPressure1']:
