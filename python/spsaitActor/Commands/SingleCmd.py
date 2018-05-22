@@ -17,6 +17,9 @@ class SingleCmd(object):
         self.name = "single"
         self.vocab = [
             ('single', '[@(object|arc|flat)] <exptime> [<cams>]', self.doExposure),
+            ('single', 'bias [<cams>]', self.doBias),
+            ('single', 'dark  <exptime> [<cams>]', self.doDark),
+
 
         ]
 
@@ -42,22 +45,43 @@ class SingleCmd(object):
     @threaded
     def doExposure(self, cmd):
         cmdKeys = cmd.cmd.keywords
-        imtype = 'object'
-        imtype = 'arc' if 'arc' in cmdKeys else imtype
-        imtype = 'flat' if 'flat' in cmdKeys else imtype
+        exptype = 'object'
+        exptype = 'arc' if 'arc' in cmdKeys else exptype
+        exptype = 'flat' if 'flat' in cmdKeys else exptype
 
         exptime = cmdKeys['exptime'].values[0]
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else False
 
         self.controller.resetExposure()
         self.controller.expose(cmd=cmd,
-                               imtype=imtype,
+                               exptype=exptype,
                                exptime=exptime,
                                cams=cams)
 
         cmd.finish()
 
+    @threaded
+    def doBias(self, cmd):
+        cmdKeys = cmd.cmd.keywords
+        exptype = 'bias'
+        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else False
 
+        self.controller.resetExposure()
+        self.controller.bias(cmd=cmd,
+                             cams=cams)
 
+        cmd.finish()
 
+    @threaded
+    def doDark(self, cmd):
+        cmdKeys = cmd.cmd.keywords
+        exptype = 'dark'
+        exptime = cmdKeys['exptime'].values[0]
+        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else False
 
+        self.controller.resetExposure()
+        self.controller.dark(cmd=cmd,
+                             exptime=exptime,
+                             cams=cams)
+
+        cmd.finish()

@@ -5,35 +5,17 @@ from functools import partial
 import spsaitActor.utils as utils
 from datetime import datetime as dt
 import numpy as np
-import sqlite3
 
 
-def storeAitDB(engine, sqlRequest):
-    conn = sqlite3.connect(engine)
-    c = conn.cursor()
-
-    try:
-        c.execute(sqlRequest)
-        conn.commit()
-
-    except sqlite3.IntegrityError:
-        pass
-
-
-class Exposure(object):
-    def __init__(self, actor, cams, visit, imtype, exptime, cmd):
+class CcdList(object):
+    def __init__(self, actor, cams, cmd):
         object.__init__(self)
         self.actor = actor
-        self.visit = visit
-        self.imtype = imtype
-        self.exptime = exptime
         self.cmd = cmd
+        self.cams = cams
         self.ccds = []
 
         self.start = dt.utcnow()
-
-        for cam in cams:
-            self.ccds.append(CcdThread(actor=actor, imtype=imtype, visit=visit, cmd=cmd, cam=cam))
 
     def __del__(self):
         self.exit()
@@ -73,6 +55,29 @@ class Exposure(object):
 
         return True
 
+    def clearCcd(self):
+        for ccd in self.ccdActive:
+            ccd.clearExposure()
+
+    def exit(self):
+        for ccd in self.ccds:
+            ccd.exit()
+
+
+class Exposure(CcdList):
+    def __init__(self, actor, cams, visit, exptype, exptime, cmd):
+        object.__init__(self)
+        self.visit = visit
+        self.exptype = exptype
+        self.exptime = exptime
+
+        self.start = dt.utcnow()
+
+        CcdList.__init__(self, actor=actor, cmd=cmd, cams=cams)
+
+        for cam in cams:
+            self.ccds.append(CcdThread(actor=actor, exptype=exptype, visit=visit, cmd=cmd, cam=cam))
+
     def wipeCcd(self, cmd):
 
         for ccd in self.ccdActive:
@@ -90,38 +95,33 @@ class Exposure(object):
         for smId, key in shutters.items():
             ShaThread(self.actor, smId, key, cmd, exptime)
 
-    def clearCcd(self):
-        for ccd in self.ccdActive:
-            ccd.clearExposure()
-
     def store(self):
-        site = 'L'
-        visit = self.visit
-        exposureId = 'PFLA%s' % (str(visit).zfill(6))
-        obsdate = self.start.isoformat()
-        exptime = self.exptime
-        exptype = self.imtype
-        quality = 'OK'
-        sqlRequest = """INSERT INTO Exposure VALUES ('%s','%s', %i, '%s', %.3f, '%s', '%s');""" % (exposureId,
-                                                                                                   site,
-                                                                                                   visit,
-                                                                                                   obsdate,
-                                                                                                   exptime,
-                                                                                                   exptype,
-                                                                                                   quality)
-
-        storeAitDB(engine=self.actor.dbEnginePath, sqlRequest=sqlRequest)
+        utils.Logbook.newExposure(exposureId='PFLA%s' % (str(self.visit).zfill(6)),
+                                  site='L',
+                                  visit=self.visit,
+                                  obsdate=self.start.isoformat(),
+                                  exptime=self.exptime,
+                                  exptype=self.exptype,
+                                  quality='OK')
 
     def info(self):
-        conn = sqlite3.connect(self.actor.dbEnginePath)
-        c = conn.cursor()
-        c.execute(
-            '''select visit,spectrograph,arm,quality from Exposure inner join CamExposure on Exposure.exposureId=CamExposure.exposureId where visit=%i''' % self.visit)
-        return c.fetchall()
+        return utils.Logbook.getInfo(visit=self.visit)
 
-    def exit(self):
-        for ccd in self.ccds:
-            ccd.exit()
+class Biases(CcdList):
+    def __init__(self, actor, cams, cmd):
+
+        CcdList.__init__(self, actor=actor, cmd=cmd, cams=cams)
+
+        for cam in cams:
+            self.ccds.append(Bias(actor=actor, cmd=cmd, cam=cam))
+
+
+class Darks(CcdList):
+    def __init__(self, actor, cams, cmd, exptime):
+        CcdList.__init__(self, actor=actor, cmd=cmd, cams=cams)
+
+        for cam in cams:
+            self.ccds.append(Dark(actor=actor, cmd=cmd, exptime=exptime, cam=cam))
 
 
 class ShaThread(QThread):
@@ -143,14 +143,14 @@ class ShaThread(QThread):
 
 
 class CcdThread(QThread):
-    def __init__(self, actor, imtype, visit, cmd, cam):
+    def __init__(self, actor, exptype, visit, cmd, cam):
         self.cam = cam
         self.smId = int(cam[-1])
         self.arm = cam[0]
         self.ccdActor = 'ccd_%s' % cam
         self.enuActor = 'enu_sm%i' % self.smId
         self.actor = actor
-        self.imtype = imtype
+        self.exptype = exptype
         self.visit = visit
         self.cmd = cmd
 
@@ -198,7 +198,7 @@ class CcdThread(QThread):
             return
 
         self.thrCall(actor=self.ccdActor,
-                     cmdStr='read %s visit=%i exptime=%.3f obstime=%s' % (self.imtype, self.visit, exptime, dateobs),
+                     cmdStr='read %s visit=%i exptime=%.3f obstime=%s' % (self.exptype, self.visit, exptime, dateobs),
                      timeLim=60,
                      forUserCmd=self.cmd)
 
@@ -250,12 +250,12 @@ class CcdThread(QThread):
 
         camExposureId = filename.split('.fits')[0]
         exposureId = camExposureId[:-2]
-        sqlRequest = """INSERT INTO CamExposure VALUES ('%s','%s', %i, '%s');""" % (camExposureId,
-                                                                                    exposureId,
-                                                                                    self.smId,
-                                                                                    self.arm)
-        #
-        storeAitDB(engine=self.actor.dbEnginePath, sqlRequest=sqlRequest)
+
+        utils.Logbook.newCamExposure(camExposureId=camExposureId,
+                                     exposureId=exposureId,
+                                     smId=self.smId,
+                                     arm=self.arm)
+
         self.isLogged = True
 
     def exit(self):
@@ -268,6 +268,57 @@ class CcdThread(QThread):
         enuKeys.keyVarDict['exptime'].removeCallback(self.read)
 
         self.exitASAP = True
+
+
+class CalibThread(CcdThread):
+    def __init__(self, actor, exptype, exptime, cmd, cam):
+        self.exptime = exptime
+        self.dateobs = dt.utcnow().isoformat()
+
+        CcdThread.__init__(self, actor=actor, exptype=exptype, visit=None, cmd=cmd, cam=cam)
+        self.activated = True
+
+    def storeCamExposure(self, keyvar):
+        rootDir, dateDir, filename = keyvar.getValue()
+
+        self.visit = int(filename[4:10])
+
+        CcdThread.storeCamExposure(self, keyvar)
+        utils.Logbook.newExposure(exposureId=filename[:10],
+                                  site='L',
+                                  visit=self.visit,
+                                  obsdate=self.dateobs,
+                                  exptime=self.exptime,
+                                  exptype=self.exptype,
+                                  quality='OK')
+
+        visit, exptype, spectrograph, arm, quality = self.info()[0]
+        self.cmd.inform('camExposure=%i,%s,%i,%s,%s' % (visit, exptype, spectrograph, arm, quality))
+
+
+    def info(self):
+        return utils.Logbook.getInfo(visit=self.visit)
+
+
+class Bias(CalibThread):
+    def __init__(self, actor, cmd, cam):
+        CalibThread.__init__(self, actor=actor, exptype='bias', exptime=0, cmd=cmd, cam=cam)
+
+        self.thrCall(actor=self.ccdActor,
+                     cmdStr='expose nbias=1',
+                     timeLim=60,
+                     forUserCmd=cmd)
+
+
+class Dark(CalibThread):
+    def __init__(self, actor, cmd, exptime, cam):
+        CalibThread.__init__(self, actor=actor, exptype='dark', exptime=exptime, cmd=cmd, cam=cam)
+
+        self.thrCall(actor=self.ccdActor,
+                     cmdStr='expose darks=%.2f' % exptime,
+                     timeLim=60+exptime,
+                     forUserCmd=cmd)
+        
 
 
 class single(QThread):
@@ -284,13 +335,13 @@ class single(QThread):
     def resetExposure(self):
         self.actor.doStop = False
 
-    def expose(self, cmd, imtype, exptime, cams):
+    def expose(self, cmd, exptype, exptime, cams):
         cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
         visit = self.actor.getSeqno(cmd=cmd)
         exposure = Exposure(actor=self.actor,
                             cams=cams,
                             visit=visit,
-                            imtype=imtype,
+                            exptype=exptype,
                             exptime=exptime,
                             cmd=cmd)
 
@@ -307,8 +358,35 @@ class single(QThread):
 
         exposure.store()
 
-        for visit, spectrograph, arm, quality in exposure.info():
-            cmd.inform('camExposure=%i,%i,%s,%s' % (visit, spectrograph, arm, quality))
+        for visit, exptype, spectrograph, arm, quality in exposure.info():
+            cmd.inform('camExposure=%i,%s,%i,%s,%s' % (visit, exptype, spectrograph, arm, quality))
+
+    def bias(self, cmd, cams):
+        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+
+        biases = Biases(actor=self.actor,
+                        cams=cams,
+                        cmd=cmd)
+
+        biases.waitAndHandle(state='reading', timeout=90)
+        biases.waitAndHandle(state='idle', timeout=180, force=True)
+
+        if not biases.exist:
+            raise Exception('no exposure has been created')
+
+    def dark(self, cmd, exptime, cams):
+        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+
+        darks = Darks(actor=self.actor,
+                       cams=cams,
+                       cmd=cmd,
+                       exptime=exptime)
+
+        darks.waitAndHandle(state='reading', timeout=90)
+        darks.waitAndHandle(state='idle', timeout=180, force=True)
+
+        if not darks.exist:
+            raise Exception('no exposure has been created')
 
     def start(self, cmd=None):
         QThread.start(self)
