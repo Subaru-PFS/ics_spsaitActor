@@ -350,7 +350,7 @@ class single(QThread):
 
         exposure.cmdShutters(cmd=cmd, exptime=exptime)
 
-        exposure.waitAndHandle(state='reading', timeout=60)
+        exposure.waitAndHandle(state='reading', timeout=60+exptime)
         exposure.waitAndHandle(state='idle', timeout=180, force=True)
 
         if not exposure.exist:
@@ -368,7 +368,7 @@ class single(QThread):
                         cams=cams,
                         cmd=cmd)
 
-        biases.waitAndHandle(state='reading', timeout=90)
+        biases.waitAndHandle(state='reading', timeout=60)
         biases.waitAndHandle(state='idle', timeout=180, force=True)
 
         if not biases.exist:
@@ -382,7 +382,7 @@ class single(QThread):
                        cmd=cmd,
                        exptime=exptime)
 
-        darks.waitAndHandle(state='reading', timeout=90)
+        darks.waitAndHandle(state='reading', timeout=60+exptime)
         darks.waitAndHandle(state='idle', timeout=180, force=True)
 
         if not darks.exist:
