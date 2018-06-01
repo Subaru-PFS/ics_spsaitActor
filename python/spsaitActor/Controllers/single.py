@@ -332,8 +332,6 @@ class single(QThread):
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
 
-    def resetExposure(self):
-        self.actor.doStop = False
 
     def expose(self, cmd, exptype, exptime, cams):
         cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')

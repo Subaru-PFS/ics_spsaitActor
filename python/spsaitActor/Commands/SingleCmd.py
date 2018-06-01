@@ -55,7 +55,6 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        self.controller.resetExposure()
         self.controller.expose(cmd=cmd,
                                exptype=exptype,
                                exptime=exptime,
@@ -71,7 +70,6 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        self.controller.resetExposure()
         self.controller.bias(cmd=cmd,
                              cams=cams)
 
@@ -86,7 +84,6 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        self.controller.resetExposure()
         self.controller.dark(cmd=cmd,
                              exptime=exptime,
                              cams=cams)
