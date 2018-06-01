@@ -42,20 +42,19 @@ class SpsaitActor(actorcore.ICC.ICC):
         cmd = kwargs["forUserCmd"]
         kwargs["timeLim"] = 300 if "timeLim" not in list(kwargs.keys()) else kwargs["timeLim"]
 
-        # cmdStr = '%s %s' % (kwargs["actor"], kwargs["cmdStr"])
-
         cmdVar = self.cmdr.call(**kwargs)
 
-        # stat = cmdVar.lastReply.canonical().split(" ", 4)[-1]
-        if cmdVar.didFail:
-            # cmd.warn(stat)
-            if not doRetry or self.doStop:
-                raise Exception('')
+        if self.doStop:
+            raise UserWarning('Stop requested')
 
-                # raise Exception("%s has failed" % cmdStr.upper())
-            else:
+        if cmdVar.didFail:
+            if doRetry:
                 time.sleep(10)
                 self.safeCall(**kwargs)
+            else:
+                reply = cmdVar.replyList[-1]
+                raise Exception("actor=%s %s" % (reply.header.actor,
+                                                 reply.keywords.canonical(delimiter=';')))
 
     def processSequence(self, cmd, sequence, ti=0.2):
 
@@ -64,7 +63,7 @@ class SpsaitActor(actorcore.ICC.ICC):
 
             for i in range(int(cmdSeq.tempo // ti)):
                 if self.doStop:
-                    raise Exception('Stop requested')
+                    raise UserWarning('Stop requested')
                 time.sleep(ti)
 
             time.sleep(cmdSeq.tempo % ti)
@@ -86,6 +85,9 @@ class SpsaitActor(actorcore.ICC.ICC):
     def abortShutters(self, cmd):
         for enu in self.enus:
             cmdVar = self.cmdr.call(actor=enu, cmdStr="shutters abort", forUserCmd=cmd)
+
+    def resetSequence(self):
+        self.doStop = False
 
     def connectionMade(self):
         if self.everConnected is False:
