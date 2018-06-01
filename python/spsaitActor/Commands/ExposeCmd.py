@@ -9,7 +9,7 @@ from functools import partial
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException, FailExposure
+from spsaitActor.utils import threaded
 
 
 class ExposeCmd(object):
@@ -23,16 +23,26 @@ class ExposeCmd(object):
         #
         self.name = "expose"
         self.vocab = [
-            ('expose', '[object] <exptime> [<comment>] [@(blue|red)]', self.doExposure),
-            ('expose', 'arc <exptime> [@(neon|hgar|xenon|krypton)] [<attenuator>] [@(blue|red)] [switchOff] [force]', self.doArc),
-            ('expose', 'flat <exptime> [<attenuator>] [@(blue|red)] [switchOff] [force]', self.doArc),
+            ('expose', 'arc <exptime> [<switchOn>] [<switchOff>] [<attenuator>] [force] [<duplicate>] [<cam>] [<cams>]',
+             self.doArc),
+            ('expose', 'flat <exptime> [<attenuator>] [switchOff] [<duplicate>] [<cam>] [<cams>]', self.doArc),
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_expose", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
-                                        keys.Key("comment", types.String(), help="user comment"),
-                                        keys.Key("attenuator", types.Int(), help="optional attenuator value"),
+                                        keys.Key("switchOn", types.String() * (1, None),
+                                                 help='which arc lamp to switch on.'),
+                                        keys.Key("switchOff", types.String() * (1, None),
+                                                 help='which arc lamp to switch off.'),
+                                        keys.Key("attenuator", types.Int(),
+                                                 help='Attenuator value.'),
+                                        keys.Key("duplicate", types.Int(),
+                                                 help="exposure duplicate (1 is default)"),
+                                        keys.Key("cam", types.String(),
+                                                 help='single camera to take exposure from'),
+                                        keys.Key("cams", types.String() * (1,),
+                                                 help='list of camera to take exposure from'),
                                         )
 
     @property
@@ -42,83 +52,62 @@ class ExposeCmd(object):
         except KeyError:
             raise RuntimeError('%s controller is not connected.' % self.name)
 
-    @property
-    def boolStop(self):
-        return self.actor.boolStop[self.name]
-
     @threaded
     def doArc(self, cmd):
-        self.controller.resetExposure()
+
+        ex = False
+        self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
-        dcbKeys = self.actor.models['dcb']
         cmdCall = self.actor.safeCall
-        ex = False
-
-        arms = ['blue', 'red']
-
-        arms = arms[:1] if 'blue' in cmdKeys else arms
-        arms = arms[1:] if 'red' in cmdKeys else arms
 
         exptime = cmdKeys['exptime'].values[0]
-        expType = "flat" if "flat" in cmdKeys else "arc"
 
-        switchOff = True if "switchOff" in cmdKeys else False
-        force = True if "force" in cmdKeys else False
-        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
-        forceCmd = 'force' if force else ''
+        if 'arc' in cmdKeys:
+            exptype = 'arc'
+            switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
+            switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
+        else:
+            exptype = 'flat'
+            switchOn = ['halogen']
+            switchOff = ['halogen'] if 'switchOff' in cmdKeys else False
 
-        arc = None
-        arc = "neon" if "neon" in cmdKeys else arc
-        arc = "hgar" if "hgar" in cmdKeys else arc
-        arc = "xenon" if "xenon" in cmdKeys else arc
-        arc = "krypton" if "krypton" in cmdKeys else arc
-        arc = "halogen" if "flat" in cmdKeys else arc
+        cams = False
+        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
+        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+
+        attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
+        force = 'force' if 'force' in cmdKeys else ''
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
 
-        if arc is not None:
-            cmdCall(actor='dcb', cmdStr="%s on %s %s" % (arc, attenCmd, forceCmd), timeLim=300, forUserCmd=cmd)
-
-        if not force:
-            flux = dcbKeys.keyVarDict['fluxmedian'].getValue()
-
-            if np.isnan(flux) or flux <= 0 or self.boolStop:
-                raise Exception("Flux is null")
+        if switchOn:
+            cmdCall(actor='dcb',
+                    cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
+                    timeLim=300,
+                    forUserCmd=cmd)
 
         try:
-            self.controller.expose(cmd, expType, exptime, arms)
-            arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdActive]
-            msg = 'arc done arms=%s exptime=%.2f' % (','.join(arms), exptime)
+            sequence = self.controller.arcs(exptype=exptype,
+                                            exptime=exptime,
+                                            duplicate=duplicate,
+                                            cams=cams)
 
-        except Exception as ex:
-            msg = formatException(ex, sys.exc_info()[2])
+            self.actor.processSequence(cmd, sequence)
 
-        if arc is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
+        except Exception as e:
+            ex = e
 
-        ender = cmd.fail if ex else cmd.finish
-        ender("text='%s'" % msg)
+        if switchOff:
+            cmdCall(actor='dcb',
+                    cmdStr="arc off=%s" % ','.join(switchOff),
+                    timeLim=300,
+                    forUserCmd=cmd)
 
-    @threaded
-    def doExposure(self, cmd):
-        self.controller.resetExposure()
+        if ex:
+            raise ex
 
-        cmdKeys = cmd.cmd.keywords
-
-        arms = ['blue', 'red']
-
-        arms = arms[1:] if 'red' in cmdKeys else arms
-        arms = arms[:1] if 'blue' in cmdKeys else arms
-
-        exptime = cmdKeys['exptime'].values[0]
-        expType = "object" if "object" in cmdKeys else "arc"
-
-        if exptime <= 0:
-            raise Exception("exptime must be > 0")
-
-        self.controller.expose(cmd, expType, exptime, arms)
-
-        arms = [self.actor.ccd2arm[ccd] for ccd in self.controller.ccdActive]
-        cmd.finish("text='exposure done arms=%s exptime=%.2f'" % (','.join(arms), exptime))
+        cmd.finish()

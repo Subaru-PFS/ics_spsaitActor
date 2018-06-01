@@ -21,7 +21,7 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('adjust', 'slitalign <exptime>', self.adjust),
-            ('abort', '[cryo]', self.abort),
+            ('abort', '', self.abort),
         ]
 
         # Define typed command arguments for the above commands.
@@ -42,17 +42,10 @@ class TopCmd(object):
 
     def abort(self, cmd):
 
-        cmdKeys = cmd.cmd.keywords
-        names = ['exposure', 'detalign', 'dither', 'calib', 'test'] if not 'cryo' in cmdKeys else ['cryo']
+        self.actor.doStop = True
+        self.actor.abortShutters(cmd)
 
-        for name in names:
-            self.actor.boolStop[name] = True
-
-        if len(names) > 1:
-            name = 'acquisition'
-            self.actor.cmdr.call(actor='enu', cmdStr="shutters abort", forUserCmd=cmd)
-
-        cmd.finish("text='Aborting %s sequence'" % name)
+        cmd.finish("text='Aborting'")
 
     def adjust(self, cmd):
         expTime = cmd.cmd.keywords['exptime'].values[0]

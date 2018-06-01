@@ -15,24 +15,34 @@ class calib(QThread):
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
 
+    def biases(self, duplicate, cams):
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
+
+        sequence = duplicate * [CmdSeq(actor='spsait',
+                                       cmdStr='single bias %s' % cams,
+                                       timeLim=180)]
+        return sequence
+
+    def darks(self, duplicate, exptime, cams):
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
+
+        sequence = duplicate * [CmdSeq(actor='spsait',
+                                       cmdStr='single dark exptime=%.2f %s' % (exptime, cams),
+                                       timeLim=exptime+180)]
+        return sequence
+
+    def calibration(self, nbias, ndarks, exptime, cams):
+        sequence = self.biases(duplicate=nbias, cams=cams)
+        sequence += self.darks(duplicate=ndarks, exptime=exptime, cams=cams)
+
+        return sequence
+
     def background(self, exptime, nb, arm):
         spsait = self.actor.name
         return nb * [CmdSeq(spsait, "expose exptime=%.2f %s" % (exptime, arm), timeLim=exptime + 500, doRetry=True)]
 
     def noLight(self):
         return 2 * [CmdSeq('dcb', "labsphere attenuator=0")]
-
-    def bias(self, ccd, nbias):
-        return [CmdSeq(ccd, "expose nbias=%i" % nbias, timeLim=120 * nbias, doRetry=True)]
-
-    def dark(self, ccd, exptime, ndarks):
-        return ndarks * [CmdSeq(ccd, "expose darks=%.2f" % exptime, timeLim=exptime + 120, doRetry=True)]
-
-    def calibration(self, ccd, nbias, ndarks, exptime):
-        sequence = self.bias(ccd, nbias)
-        sequence += self.dark(ccd, exptime, ndarks)
-
-        return sequence
 
     def imstability(self, exptime, nb, delay, arc, duplicate, attenCmd, optArgs):
         spsait = self.actor.name
@@ -52,18 +62,8 @@ class calib(QThread):
 
         return sequence
 
-    def arcs(self, exptime, arc, duplicate, attenCmd, optArgs):
-        spsait = self.actor.name
-
-        forceCmd = 'force' if 'force' in optArgs else ''
-        exptype = "flat" if arc == "halogen" else "arc"
-        sequence = [CmdSeq('dcb', "%s on %s %s" % (arc, attenCmd, forceCmd), doRetry=True)] if arc is not None else []
-        sequence += duplicate * [CmdSeq(spsait,
-                                        "expose %s exptime=%.2f %s" % (exptype, exptime, ' '.join(optArgs)),
-                                        timeLim=500 + exptime,
-                                        doRetry=True)]
-
-        return sequence
+    def start(self, cmd=None):
+        QThread.start(self)
 
     def handleTimeout(self):
         """| Is called when the thread is idle
