@@ -14,7 +14,7 @@ import opscore.protocols.types as types
 from astropy.io import fits
 from imgtool import centroid
 
-from spsaitActor.utils import threaded, formatException
+from spsaitActor.utils import threaded
 
 class SlitalignCmd(object):
     def __init__(self, actor):

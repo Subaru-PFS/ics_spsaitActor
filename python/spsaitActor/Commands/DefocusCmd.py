@@ -6,7 +6,7 @@ import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded, formatException
+from spsaitActor.utils import threaded
 
 
 class DefocusCmd(object):
