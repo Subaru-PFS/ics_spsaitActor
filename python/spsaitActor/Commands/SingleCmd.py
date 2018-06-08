@@ -5,6 +5,7 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from enuActor.utils.wrap import threaded
 
+
 class SingleCmd(object):
     def __init__(self, actor):
         # This lets us access the rest of the actor.
@@ -19,7 +20,6 @@ class SingleCmd(object):
             ('single', '[@(object|arc|flat)] <exptime> [<cam>] [<cams>]', self.doExposure),
             ('single', 'bias [<cam>] [<cams>]', self.doBias),
             ('single', 'dark <exptime> [<cam>] [<cams>]', self.doDark),
-
 
         ]
 
@@ -55,12 +55,12 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        self.controller.expose(cmd=cmd,
-                               exptype=exptype,
-                               exptime=exptime,
-                               cams=cams)
+        visit = self.controller.expose(cmd=cmd,
+                                       exptype=exptype,
+                                       exptime=exptime,
+                                       cams=cams)
 
-        cmd.finish()
+        cmd.finish('newVisits=%i' % visit)
 
     @threaded
     def doBias(self, cmd):
@@ -70,10 +70,10 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        self.controller.bias(cmd=cmd,
-                             cams=cams)
+        visits = self.controller.bias(cmd=cmd,
+                                      cams=cams)
 
-        cmd.finish()
+        cmd.finish('newVisits=%s' % ','.join([str(visit) for visit in visits]))
 
     @threaded
     def doDark(self, cmd):
@@ -84,8 +84,8 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        self.controller.dark(cmd=cmd,
-                             exptime=exptime,
-                             cams=cams)
+        visits = self.controller.dark(cmd=cmd,
+                                      exptime=exptime,
+                                      cams=cams)
 
-        cmd.finish()
+        cmd.finish('newVisits=%s' % ','.join([str(visit) for visit in visits]))

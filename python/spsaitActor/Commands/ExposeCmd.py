@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 
 
-from builtins import object
-import sys
-import time
-from functools import partial
-
-import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded
+
+from enuActor.utils.wrap import threaded
+from spsaitActor.sequencing import SubCmd
+
 
 
 class ExposeCmd(object):
@@ -23,9 +20,11 @@ class ExposeCmd(object):
         #
         self.name = "expose"
         self.vocab = [
-            ('expose', 'arc <exptime> [<switchOn>] [<switchOff>] [<attenuator>] [force] [<duplicate>] [<cam>] [<cams>]',
-             self.doArc),
-            ('expose', 'flat <exptime> [<attenuator>] [switchOff] [<duplicate>] [<cam>] [<cams>]', self.doArc),
+            ('expose', 'arc <exptime> [<switchOn>] [<switchOff>] [<attenuator>] [force] [<duplicate>] '
+                       '[<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doArc),
+
+            ('expose', 'flat <exptime> [<attenuator>] [switchOff] [<duplicate>] [<name>] [<comments>] [<drpFolder>] '
+                       '[<cam>] [<cams>]', self.doArc),
         ]
 
         # Define typed command arguments for the above commands.
@@ -39,6 +38,12 @@ class ExposeCmd(object):
                                                  help='Attenuator value.'),
                                         keys.Key("duplicate", types.Int(),
                                                  help="exposure duplicate (1 is default)"),
+                                        keys.Key("name", types.String(),
+                                                 help='experiment name'),
+                                        keys.Key("comments", types.String(),
+                                                 help='operator comments'),
+                                        keys.Key("drpFolder", types.String(),
+                                                 help='detrend exposures to this folder'),
                                         keys.Key("cam", types.String(),
                                                  help='single camera to take exposure from'),
                                         keys.Key("cams", types.String() * (1,),
@@ -56,10 +61,11 @@ class ExposeCmd(object):
     def doArc(self, cmd):
 
         ex = False
+        head = False
+        tail = False
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.safeCall
 
         exptime = cmdKeys['exptime'].values[0]
 
@@ -76,6 +82,10 @@ class ExposeCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
@@ -84,30 +94,31 @@ class ExposeCmd(object):
         if exptime <= 0:
             raise Exception("exptime must be > 0")
 
+        if drpFolder:
+            self.actor.safeCall(actor='drp',
+                                cmdStr='set drpFolder=%s' % drpFolder,
+                                forUserCmd=cmd)
+
         if switchOn:
-            cmdCall(actor='dcb',
-                    cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                    timeLim=300,
-                    forUserCmd=cmd)
-
-        try:
-            sequence = self.controller.arcs(exptype=exptype,
-                                            exptime=exptime,
-                                            duplicate=duplicate,
-                                            cams=cams)
-
-            self.actor.processSequence(cmd, sequence)
-
-        except Exception as e:
-            ex = e
+            head = SubCmd(actor='dcb',
+                          cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
+                          timeLim=300)
 
         if switchOff:
-            cmdCall(actor='dcb',
-                    cmdStr="arc off=%s" % ','.join(switchOff),
-                    timeLim=300,
-                    forUserCmd=cmd)
+            tail = SubCmd(actor='dcb',
+                          cmdStr="arc off=%s" % ','.join(switchOff),
+                          timeLim=300)
 
-        if ex:
-            raise ex
+        sequence = self.controller.arcs(exptype=exptype,
+                                        exptime=exptime,
+                                        duplicate=duplicate,
+                                        cams=cams)
+
+        self.actor.processSequence(cmd, sequence,
+                                   exptype='%ss' % exptype,
+                                   name=name,
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
 
         cmd.finish()

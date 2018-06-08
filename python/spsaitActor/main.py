@@ -2,11 +2,12 @@
 
 import argparse
 import logging
-import sqlite3
 import time
 
 import actorcore.ICC
 from twisted.internet import reactor
+
+from spsaitActor.sequencing import Experiment
 
 
 class SpsaitActor(actorcore.ICC.ICC):
@@ -15,7 +16,7 @@ class SpsaitActor(actorcore.ICC.ICC):
         #
         self.name = name
 
-        specIds = [i+1 for i in range(1)]
+        specIds = [i + 1 for i in range(1)]
         allcams = ['b%i' % i for i in specIds] + ['r%i' % i for i in specIds]
 
         self.ccds = ['ccd_%s' % cam for cam in allcams]
@@ -37,37 +38,44 @@ class SpsaitActor(actorcore.ICC.ICC):
 
         self.doStop = False
 
-    def safeCall(self, doRetry=False, **kwargs):
+    def safeCall(self, doRaise=True, doRetry=False, **kwargs):
 
         cmd = kwargs["forUserCmd"]
-        kwargs["timeLim"] = 300 if "timeLim" not in list(kwargs.keys()) else kwargs["timeLim"]
+        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.keys() else kwargs["timeLim"]
 
         cmdVar = self.cmdr.call(**kwargs)
 
-        if self.doStop:
-            raise UserWarning('Stop requested')
+        if cmdVar.didFail and doRaise:
+            reply = cmdVar.replyList[-1]
+            raise Exception("actor=%s %s" % (reply.header.actor,
+                                             reply.keywords.canonical(delimiter=';')))
 
-        if cmdVar.didFail:
-            if doRetry:
-                time.sleep(10)
-                self.safeCall(**kwargs)
-            else:
-                reply = cmdVar.replyList[-1]
-                raise Exception("actor=%s %s" % (reply.header.actor,
-                                                 reply.keywords.canonical(delimiter=';')))
+        return cmdVar
 
-    def processSequence(self, cmd, sequence, ti=0.2):
+    def processSequence(self, cmd, sequence, exptype, name='', comments='', head=False, tail=False):
+        sequence = [head] + sequence if head else sequence
+        sequence = sequence + [tail] if tail else sequence
 
-        for id, cmdSeq in enumerate(sequence):
-            self.safeCall(**(cmdSeq.build(cmd)))
+        experiment = Experiment(cmd, subCmds=sequence, exptype=exptype, name=name, comments=comments)
+        cmd.inform('newExperiment=%s' % experiment.info)
 
-            for i in range(int(cmdSeq.tempo // ti)):
-                if self.doStop:
-                    raise UserWarning('Stop requested')
-                time.sleep(ti)
+        try:
+            for id, subCmd in enumerate(sequence):
+                cmdVar = self.safeCall(doRaise=False, **(subCmd.build(cmd)))
+                lastKeywords = cmdVar.replyList[-1].keywords
 
-            time.sleep(cmdSeq.tempo % ti)
+                if cmdVar.didFail:
+                    cmd.warn('subCommand=%i,%s' % (id, lastKeywords.canonical(delimiter=';')[5:]))
+                else:
+                    cmd.inform('subCommand=%i,""' % id)
+                    if subCmd.getVisit:
+                        visits = lastKeywords['newVisits'].values
 
+                self.waitUntil(end=(time.time() + subCmd.tempo))
+        except:
+            if tail:
+                self.safeCall(doRaise=False, **(tail.build(cmd)))
+            raise
 
     def getSeqno(self, cmd):
         cmdVar = self.cmdr.call(actor='seqno',
@@ -88,6 +96,12 @@ class SpsaitActor(actorcore.ICC.ICC):
 
     def resetSequence(self):
         self.doStop = False
+
+    def waitUntil(self, end):
+        while time.time() < end:
+            if self.doStop:
+                raise UserWarning('Stop requested')
+
 
     def connectionMade(self):
         if self.everConnected is False:

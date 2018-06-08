@@ -1,16 +1,11 @@
 #!/usr/bin/env python
 
 
-from builtins import object
-import sys
-import time
-from functools import partial
-
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 
-from spsaitActor.utils import threaded
+from enuActor.utils.wrap import threaded
 
 
 class CalibCmd(object):
@@ -24,9 +19,9 @@ class CalibCmd(object):
         #
         self.name = "calib"
         self.vocab = [
-            ('bias', '[<duplicate>] [<cam>] [<cams>]', self.doBias),
-            ('dark', '<exptime> [<duplicate>] [<cam>] [<cams>]', self.doDarks),
-            ('calib', '[<nbias>] [<ndarks>] [<exptime>] [<cam>] [<cams>]', self.doBasicCalib),
+            ('bias', '[<duplicate>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doBias),
+            ('dark', '<exptime> [<duplicate>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doDarks),
+            ('calib', '[<nbias>] [<ndarks>] [<exptime>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doBasicCalib),
 
             ('imstab','', self.doImstab),
             ('background', '', self.doBackground),
@@ -40,6 +35,12 @@ class CalibCmd(object):
                                                  help='single camera to take exposure from'),
                                         keys.Key("cams", types.String() * (1,),
                                                  help='list of camera to take exposure from'),
+                                        keys.Key("name", types.String(),
+                                                 help='experiment name'),
+                                        keys.Key("comments", types.String(),
+                                                 help='operator comments'),
+                                        keys.Key("drpFolder", types.String(),
+                                                 help='detrend exposures to this folder'),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("ndarks", types.Int(), help="Number of darks"),
                                         keys.Key("nbias", types.Int(), help="Number of bias"),
@@ -57,59 +58,82 @@ class CalibCmd(object):
     @threaded
     def doBias(self, cmd):
 
-        ex = False
         self.actor.resetSequence()
-
         cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.safeCall
 
         cams = False
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
+        if drpFolder:
+            self.actor.safeCall(actor='drp',
+                                cmdStr='set drpFolder=%s' % drpFolder,
+                                forUserCmd=cmd)
+
         sequence = self.controller.biases(duplicate=duplicate, cams=cams)
-        self.actor.processSequence(cmd, sequence)
+
+        self.actor.processSequence(cmd, sequence,
+                                   exptype='biases',
+                                   name=name,
+                                   comments=comments)
 
         cmd.finish()
 
     @threaded
     def doDarks(self, cmd):
 
-        ex = False
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.safeCall
 
         cams = False
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
 
         exptime = cmdKeys['exptime'].values[0]
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
 
+        if drpFolder:
+            self.actor.safeCall(actor='drp',
+                                cmdStr='set drpFolder=%s' % drpFolder,
+                                forUserCmd=cmd)
+
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         sequence = self.controller.darks(duplicate=duplicate, exptime=exptime, cams=cams)
-        self.actor.processSequence(cmd, sequence)
+
+        self.actor.processSequence(cmd, sequence,
+                                   exptype='darks',
+                                   name=name,
+                                   comments=comments)
 
         cmd.finish()
 
     @threaded
     def doBasicCalib(self, cmd):
-        ex = False
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.safeCall
 
         cams = False
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
 
         ndarks = cmdKeys['ndarks'].values[0] if 'ndarks' in cmdKeys else 5
         exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
@@ -118,8 +142,17 @@ class CalibCmd(object):
         if exptime <= 0:
             raise Exception("exptime must be > 0")
 
+        if drpFolder:
+            self.actor.safeCall(actor='drp',
+                                cmdStr='set drpFolder=%s' % drpFolder,
+                                forUserCmd=cmd)
+
         sequence = self.controller.calibration(nbias=nbias, ndarks=ndarks, exptime=exptime, cams=cams)
-        self.actor.processSequence(cmd, sequence)
+
+        self.actor.processSequence(cmd, sequence,
+                                   exptype='calib',
+                                   name=name,
+                                   comments=comments)
 
         cmd.finish()
 
