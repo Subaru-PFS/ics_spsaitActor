@@ -59,8 +59,6 @@ class ExposeCmd(object):
 
     @threaded
     def doArc(self, cmd):
-
-        ex = False
         head = False
         tail = False
         self.actor.resetSequence()
@@ -115,7 +113,7 @@ class ExposeCmd(object):
                                         cams=cams)
 
         self.actor.processSequence(cmd, sequence,
-                                   exptype='%ss' % exptype,
+                                   seqtype='%ss' % exptype,
                                    name=name,
                                    comments=comments,
                                    head=head,

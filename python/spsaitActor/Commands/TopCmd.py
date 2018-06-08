@@ -56,15 +56,7 @@ class TopCmd(object):
 
     def test(self, cmd):
 
-        sequence = [SubCmd(actor='enu_sm1',
-                           cmdStr='slit status'),
-                    SubCmd(actor='dcb',
-                           cmdStr='arc on=hgar,neon'),
-                    SubCmd(actor='dcb',
-                           cmdStr='arc exptime=45.0')
-                    ]
-
-        self.actor.processSequence(cmd=cmd, sequence=sequence)
-
+        print (type(cmd))
+        print (cmd.rawCmd)
 
         cmd.fail('text="oups"')

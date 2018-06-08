@@ -1,18 +1,29 @@
 import sqlite3
 
 
-
 class Logbook:
     engine = '///home/arnaud/data/ait/ait-operation.db'
 
     @staticmethod
-    def getExperimentId():
+    def lastExperimentId():
 
         conn = sqlite3.connect(Logbook.engine)
         c = conn.cursor()
         c.execute("""SELECT MAX(experimentId) FROM Experiment""")
         (experimentId,) = c.fetchone()
         return experimentId
+
+    @staticmethod
+    def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, anomalies=''):
+        sqlRequest = """INSERT INTO Experiment VALUES (%i, '%s', %i, %i, '%s', '%s', '%s', '%s');""" % (experimentId,
+                                                                                                        name,
+                                                                                                        visitStart,
+                                                                                                        visitEnd,
+                                                                                                        seqtype,
+                                                                                                        cmdStr,
+                                                                                                        comments,
+                                                                                                        anomalies)
+        Logbook.newRow(sqlRequest=sqlRequest)
 
     @staticmethod
     def newExposure(exposureId, site, visit, obsdate, exptime, exptype, quality):

@@ -65,7 +65,6 @@ class SingleCmd(object):
     @threaded
     def doBias(self, cmd):
         cmdKeys = cmd.cmd.keywords
-        exptype = 'bias'
         cams = False
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
@@ -78,7 +77,6 @@ class SingleCmd(object):
     @threaded
     def doDark(self, cmd):
         cmdKeys = cmd.cmd.keywords
-        exptype = 'dark'
         exptime = cmdKeys['exptime'].values[0]
         cams = False
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams

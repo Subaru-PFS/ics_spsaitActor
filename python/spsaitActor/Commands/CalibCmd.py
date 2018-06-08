@@ -79,7 +79,7 @@ class CalibCmd(object):
         sequence = self.controller.biases(duplicate=duplicate, cams=cams)
 
         self.actor.processSequence(cmd, sequence,
-                                   exptype='biases',
+                                   seqtype='biases',
                                    name=name,
                                    comments=comments)
 
@@ -115,7 +115,7 @@ class CalibCmd(object):
         sequence = self.controller.darks(duplicate=duplicate, exptime=exptime, cams=cams)
 
         self.actor.processSequence(cmd, sequence,
-                                   exptype='darks',
+                                   seqtype='darks',
                                    name=name,
                                    comments=comments)
 
@@ -150,7 +150,7 @@ class CalibCmd(object):
         sequence = self.controller.calibration(nbias=nbias, ndarks=ndarks, exptime=exptime, cams=cams)
 
         self.actor.processSequence(cmd, sequence,
-                                   exptype='calib',
+                                   seqtype='calib',
                                    name=name,
                                    comments=comments)
 

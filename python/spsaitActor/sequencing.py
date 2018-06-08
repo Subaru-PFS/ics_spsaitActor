@@ -24,19 +24,38 @@ class SubCmd(object):
 
 
 class Experiment(object):
-    def __init__(self, cmd, subCmds, exptype, name, comments):
+    def __init__(self, subCmds, name, seqtype, rawCmd, comments):
         object.__init__(self)
-        self.cmd = cmd
-        self.id = Logbook.getExperimentId()
+        self.id = Logbook.lastExperimentId() + 1
         self.subCmds = subCmds
-        self.exptype = exptype
         self.name = name
+        self.seqtype = seqtype
+        self.rawCmd = rawCmd
         self.comments = comments
+        self.visits = []
 
     @property
     def info(self):
         return '%i,%s,"%s","%s","%s"' % (self.id,
-                                         self.exptype,
+                                         self.seqtype,
                                          self.name,
                                          self.comments,
                                          ';'.join([sub.fullCmd for sub in self.subCmds]))
+
+    def addVisits(self, newVisits):
+        newVisits = [int(visit) for visit in newVisits]
+        self.visits.extend(newVisits)
+
+    def store(self):
+        if self.visits:
+            Logbook.newExperiment(experimentId=self.id,
+                                  name=self.name,
+                                  visitStart=min(self.visits),
+                                  visitEnd=max(self.visits),
+                                  seqtype=self.seqtype,
+                                  cmdStr=self.rawCmd,
+                                  comments=self.comments
+                                  )
+
+
+

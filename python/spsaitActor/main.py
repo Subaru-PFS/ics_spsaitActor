@@ -49,14 +49,13 @@ class SpsaitActor(actorcore.ICC.ICC):
             reply = cmdVar.replyList[-1]
             raise Exception("actor=%s %s" % (reply.header.actor,
                                              reply.keywords.canonical(delimiter=';')))
-
         return cmdVar
 
-    def processSequence(self, cmd, sequence, exptype, name='', comments='', head=False, tail=False):
+    def processSequence(self, cmd, sequence, seqtype, name='', comments='', head=False, tail=False):
         sequence = [head] + sequence if head else sequence
         sequence = sequence + [tail] if tail else sequence
 
-        experiment = Experiment(cmd, subCmds=sequence, exptype=exptype, name=name, comments=comments)
+        experiment = Experiment(subCmds=sequence, name=name, seqtype=seqtype, rawCmd=cmd.rawCmd, comments=comments)
         cmd.inform('newExperiment=%s' % experiment.info)
 
         try:
@@ -69,13 +68,17 @@ class SpsaitActor(actorcore.ICC.ICC):
                 else:
                     cmd.inform('subCommand=%i,""' % id)
                     if subCmd.getVisit:
-                        visits = lastKeywords['newVisits'].values
+                        experiment.addVisits(newVisits=lastKeywords['newVisits'].values)
 
                 self.waitUntil(end=(time.time() + subCmd.tempo))
+
         except:
+            experiment.store()
             if tail:
                 self.safeCall(doRaise=False, **(tail.build(cmd)))
             raise
+
+        experiment.store()
 
     def getSeqno(self, cmd):
         cmdVar = self.cmdr.call(actor='seqno',
@@ -101,7 +104,6 @@ class SpsaitActor(actorcore.ICC.ICC):
         while time.time() < end:
             if self.doStop:
                 raise UserWarning('Stop requested')
-
 
     def connectionMade(self):
         if self.everConnected is False:
