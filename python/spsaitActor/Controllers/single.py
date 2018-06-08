@@ -2,9 +2,10 @@ import logging
 import time
 from actorcore.QThread import QThread
 from functools import partial
-import spsaitActor.utils as utils
 from datetime import datetime as dt
 import numpy as np
+
+from spsaitActor.logbook import Logbook
 
 
 class CcdList(object):
@@ -24,8 +25,8 @@ class CcdList(object):
     def ccdActive(self):
         return [ccd for ccd in self.ccds if ccd.activated]
 
-    @property
-    def exist(self):
+    def filesExist(self):
+        time.sleep(1)
         return True in [ccd.isLogged for ccd in self.ccds]
 
     def waitAndHandle(self, state, timeout, ti=0.2, force=False, doRaise=False):
@@ -34,7 +35,7 @@ class CcdList(object):
 
             if (time.time() - t0) > timeout:
                 raise Exception('ccd %s timeout' % state)
-            if self.actor.doStop:
+            if not state == 'idle' and self.actor.doStop:
                 self.clearCcd()
                 raise Exception('Exposure interrupted by user')
             time.sleep(ti)
@@ -96,24 +97,36 @@ class Exposure(CcdList):
             ShaThread(self.actor, smId, key, cmd, exptime)
 
     def store(self):
-        utils.Logbook.newExposure(exposureId='PFLA%s' % (str(self.visit).zfill(6)),
-                                  site='L',
-                                  visit=self.visit,
-                                  obsdate=self.start.isoformat(),
-                                  exptime=self.exptime,
-                                  exptype=self.exptype,
-                                  quality='OK')
+        Logbook.newExposure(exposureId='PFLA%s' % (str(self.visit).zfill(6)),
+                            site='L',
+                            visit=self.visit,
+                            obsdate=self.start.isoformat(),
+                            exptime=self.exptime,
+                            exptype=self.exptype,
+                            quality='OK')
+        return self.visit
 
-    def info(self):
-        return utils.Logbook.getInfo(visit=self.visit)
+
 
 class Biases(CcdList):
     def __init__(self, actor, cams, cmd):
-
         CcdList.__init__(self, actor=actor, cmd=cmd, cams=cams)
 
         for cam in cams:
             self.ccds.append(Bias(actor=actor, cmd=cmd, cam=cam))
+
+    def store(self):
+        for ccd in self.ccds:
+            Logbook.newExposure(exposureId=ccd.exposureId,
+                                site='L',
+                                visit=ccd.visit,
+                                obsdate=ccd.dateobs,
+                                exptime=ccd.exptime,
+                                exptype=ccd.exptype,
+                                quality='OK')
+
+        return [ccd.visit for ccd in self.ccds]
+
 
 
 class Darks(CcdList):
@@ -123,6 +136,17 @@ class Darks(CcdList):
         for cam in cams:
             self.ccds.append(Dark(actor=actor, cmd=cmd, exptime=exptime, cam=cam))
 
+    def store(self):
+        for ccd in self.ccds:
+            Logbook.newExposure(exposureId=ccd.exposureId,
+                                site='L',
+                                visit=ccd.visit,
+                                obsdate=ccd.dateobs,
+                                exptime=ccd.exptime,
+                                exptype=ccd.exptype,
+                                quality='OK')
+
+        return [ccd.visit for ccd in self.ccds]
 
 class ShaThread(QThread):
     shut = {'r': 'red', 'b': '', 'rb': '', 'br': ''}
@@ -251,10 +275,10 @@ class CcdThread(QThread):
         camExposureId = filename.split('.fits')[0]
         exposureId = camExposureId[:-2]
 
-        utils.Logbook.newCamExposure(camExposureId=camExposureId,
-                                     exposureId=exposureId,
-                                     smId=self.smId,
-                                     arm=self.arm)
+        Logbook.newCamExposure(camExposureId=camExposureId,
+                               exposureId=exposureId,
+                               smId=self.smId,
+                               arm=self.arm)
 
         self.isLogged = True
 
@@ -282,22 +306,11 @@ class CalibThread(CcdThread):
         rootDir, dateDir, filename = keyvar.getValue()
 
         self.visit = int(filename[4:10])
+        self.exposureId = filename[:10]
 
         CcdThread.storeCamExposure(self, keyvar)
-        utils.Logbook.newExposure(exposureId=filename[:10],
-                                  site='L',
-                                  visit=self.visit,
-                                  obsdate=self.dateobs,
-                                  exptime=self.exptime,
-                                  exptype=self.exptype,
-                                  quality='OK')
-
-        visit, exptype, spectrograph, arm, quality = self.info()[0]
-        self.cmd.inform('camExposure=%i,%s,%i,%s,%s' % (visit, exptype, spectrograph, arm, quality))
 
 
-    def info(self):
-        return utils.Logbook.getInfo(visit=self.visit)
 
 
 class Bias(CalibThread):
@@ -316,9 +329,8 @@ class Dark(CalibThread):
 
         self.thrCall(actor=self.ccdActor,
                      cmdStr='expose darks=%.2f' % exptime,
-                     timeLim=60+exptime,
+                     timeLim=60 + exptime,
                      forUserCmd=cmd)
-        
 
 
 class single(QThread):
@@ -331,7 +343,6 @@ class single(QThread):
         QThread.__init__(self, actor, name, timeout=2)
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
-
 
     def expose(self, cmd, exptype, exptime, cams):
         cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
@@ -348,16 +359,14 @@ class single(QThread):
 
         exposure.cmdShutters(cmd=cmd, exptime=exptime)
 
-        exposure.waitAndHandle(state='reading', timeout=60+exptime)
+        exposure.waitAndHandle(state='reading', timeout=60 + exptime)
         exposure.waitAndHandle(state='idle', timeout=180, force=True)
 
-        if not exposure.exist:
+        if not exposure.filesExist():
             raise Exception('no exposure has been created')
 
-        exposure.store()
-
-        for visit, exptype, spectrograph, arm, quality in exposure.info():
-            cmd.inform('camExposure=%i,%s,%i,%s,%s' % (visit, exptype, spectrograph, arm, quality))
+        visit = exposure.store()
+        return visit
 
     def bias(self, cmd, cams):
         cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
@@ -369,22 +378,28 @@ class single(QThread):
         biases.waitAndHandle(state='reading', timeout=60)
         biases.waitAndHandle(state='idle', timeout=180, force=True)
 
-        if not biases.exist:
+        if not biases.filesExist():
             raise Exception('no exposure has been created')
+
+        visits = biases.store()
+        return visits
 
     def dark(self, cmd, exptime, cams):
         cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
 
         darks = Darks(actor=self.actor,
-                       cams=cams,
-                       cmd=cmd,
-                       exptime=exptime)
+                      cams=cams,
+                      cmd=cmd,
+                      exptime=exptime)
 
-        darks.waitAndHandle(state='reading', timeout=60+exptime)
+        darks.waitAndHandle(state='reading', timeout=60 + exptime)
         darks.waitAndHandle(state='idle', timeout=180, force=True)
 
-        if not darks.exist:
+        if not darks.filesExist():
             raise Exception('no exposure has been created')
+
+        visits = darks.store()
+        return visits
 
     def start(self, cmd=None):
         QThread.start(self)

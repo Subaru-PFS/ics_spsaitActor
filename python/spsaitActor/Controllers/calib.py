@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.utils import CmdSeq
+from spsaitActor.sequencing import SubCmd
 
 
 class calib(QThread):
@@ -18,17 +18,19 @@ class calib(QThread):
     def biases(self, duplicate, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
 
-        sequence = duplicate * [CmdSeq(actor='spsait',
+        sequence = duplicate * [SubCmd(actor='spsait',
                                        cmdStr='single bias %s' % cams,
-                                       timeLim=180)]
+                                       timeLim=180,
+                                       getVisit=True)]
         return sequence
 
     def darks(self, duplicate, exptime, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
 
-        sequence = duplicate * [CmdSeq(actor='spsait',
+        sequence = duplicate * [SubCmd(actor='spsait',
                                        cmdStr='single dark exptime=%.2f %s' % (exptime, cams),
-                                       timeLim=exptime+180)]
+                                       timeLim=exptime+180,
+                                       getVisit=True)]
         return sequence
 
     def calibration(self, nbias, ndarks, exptime, cams):
@@ -39,20 +41,20 @@ class calib(QThread):
 
     def background(self, exptime, nb, arm):
         spsait = self.actor.name
-        return nb * [CmdSeq(spsait, "expose exptime=%.2f %s" % (exptime, arm), timeLim=exptime + 500, doRetry=True)]
+        return nb * [SubCmd(spsait, "expose exptime=%.2f %s" % (exptime, arm), timeLim=exptime + 500, doRetry=True)]
 
     def noLight(self):
-        return 2 * [CmdSeq('dcb', "labsphere attenuator=0")]
+        return 2 * [SubCmd('dcb', "labsphere attenuator=0")]
 
     def imstability(self, exptime, nb, delay, arc, duplicate, attenCmd, optArgs):
         spsait = self.actor.name
-        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
+        sequence = [SubCmd('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
 
-        acquisition = (duplicate - 1) * [CmdSeq(spsait,
+        acquisition = (duplicate - 1) * [SubCmd(spsait,
                                                 "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
                                                 timeLim=500 + exptime,
                                                 doRetry=True)]
-        acquisition += [CmdSeq(spsait,
+        acquisition += [SubCmd(spsait,
                                "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
                                timeLim=500 + exptime,
                                doRetry=True,
