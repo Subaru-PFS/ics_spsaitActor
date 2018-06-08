@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 
 
-from builtins import object
 import random
-import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded
+from enuActor.utils.wrap import threaded
+
 
 class TestCmd(object):
     def __init__(self, actor):

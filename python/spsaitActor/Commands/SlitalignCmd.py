@@ -1,20 +1,13 @@
 #!/usr/bin/env python
 
 
-from __future__ import print_function
-from __future__ import division
-from builtins import zip
-from builtins import object
-
 import time
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-
 from astropy.io import fits
-from imgtool import centroid
+from enuActor.utils.wrap import threaded
 
-from spsaitActor.utils import threaded
 
 class SlitalignCmd(object):
     def __init__(self, actor):

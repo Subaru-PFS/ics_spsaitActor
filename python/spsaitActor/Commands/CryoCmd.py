@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
-from __future__ import division
-from builtins import object
 import time
+
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-
-from spsaitActor.utils import threaded, computeRate, roughing, turbo, ionpumps, heater, cooler, gatevalve
+from enuActor.utils.wrap import threaded
 
 
 class CryoCmd(object):

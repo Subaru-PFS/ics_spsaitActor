@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 
 
-from builtins import range
-from builtins import object
 import sys
 
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-
-from spsaitActor.utils import threaded
+from enuActor.utils.wrap import threaded
 
 
 class DetalignCmd(object):

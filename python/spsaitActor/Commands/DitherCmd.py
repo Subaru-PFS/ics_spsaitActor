@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 
 
-from __future__ import division
-from builtins import object
 import sys
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded
+from enuActor.utils.wrap import threaded
 
 
 class DitherCmd(object):

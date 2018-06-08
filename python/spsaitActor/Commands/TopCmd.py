@@ -1,11 +1,9 @@
 #!/usr/bin/env python
 
 
-
-from builtins import object
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-
+from spsaitActor.sequencing import SubCmd
 
 class TopCmd(object):
     def __init__(self, actor):
@@ -21,6 +19,7 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('adjust', 'slitalign <exptime>', self.adjust),
+            ('test', '', self.test),
             ('abort', '', self.abort),
         ]
 
@@ -54,3 +53,18 @@ class TopCmd(object):
             cmd.finish("text='Adjusting exptime to %.2f'" % expTime)
         else:
             cmd.fail("text='expTime must be positive'")
+
+    def test(self, cmd):
+
+        sequence = [SubCmd(actor='enu_sm1',
+                           cmdStr='slit status'),
+                    SubCmd(actor='dcb',
+                           cmdStr='arc on=hgar,neon'),
+                    SubCmd(actor='dcb',
+                           cmdStr='arc exptime=45.0')
+                    ]
+
+        self.actor.processSequence(cmd=cmd, sequence=sequence)
+
+
+        cmd.fail('text="oups"')
