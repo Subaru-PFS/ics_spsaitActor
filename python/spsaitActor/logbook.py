@@ -5,15 +5,6 @@ class Logbook:
     engine = '///home/arnaud/data/ait/ait-operation.db'
 
     @staticmethod
-    def lastExperimentId():
-
-        conn = sqlite3.connect(Logbook.engine)
-        c = conn.cursor()
-        c.execute("""SELECT MAX(experimentId) FROM Experiment""")
-        (experimentId,) = c.fetchone()
-        return experimentId
-
-    @staticmethod
     def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, anomalies=''):
         sqlRequest = """INSERT INTO Experiment VALUES (%i, '%s', %i, %i, '%s', '%s', '%s', '%s');""" % (experimentId,
                                                                                                         name,
@@ -26,7 +17,7 @@ class Logbook:
         Logbook.newRow(sqlRequest=sqlRequest)
 
     @staticmethod
-    def newExposure(exposureId, site, visit, obsdate, exptime, exptype, quality):
+    def newExposure(exposureId, site, visit, obsdate, exptime, exptype, quality='junk'):
 
         sqlRequest = """INSERT INTO Exposure VALUES ('%s','%s', %i, '%s', %.3f, '%s', '%s');""" % (exposureId,
                                                                                                    site,
@@ -50,13 +41,22 @@ class Logbook:
     def newRow(sqlRequest):
         conn = sqlite3.connect(Logbook.engine)
         c = conn.cursor()
-
+        print('sqlRequest=', sqlRequest)
         try:
             c.execute(sqlRequest)
             conn.commit()
 
         except sqlite3.IntegrityError:
             pass
+
+    @staticmethod
+    def lastExperimentId():
+
+        conn = sqlite3.connect(Logbook.engine)
+        c = conn.cursor()
+        c.execute("""SELECT MAX(experimentId) FROM Experiment""")
+        (experimentId,) = c.fetchone()
+        return experimentId
 
     @staticmethod
     def getInfo(visit):
@@ -66,3 +66,18 @@ class Logbook:
             '''select visit,exptype,spectrograph,arm,quality from Exposure inner join CamExposure on Exposure.exposureId=CamExposure.exposureId where visit=%i''' % visit)
         return c.fetchall()
 
+    @staticmethod
+    def visitRange(experimentId):
+        conn = sqlite3.connect(Logbook.engine)
+        c = conn.cursor()
+
+        c.execute('''select visitStart,visitEnd from Experiment where ExperimentId=%i''' % experimentId)
+        [(visitStart, visitEnd)] = c.fetchall()
+
+        return visitStart, visitEnd
+
+    @staticmethod
+    def newAnomalies(experimentId, anomalies):
+        sqlRequest = 'UPDATE Experiment SET anomalies = "%s" WHERE experimentId=%i' % (anomalies.replace('"', ""),
+                                                                                       experimentId)
+        Logbook.newRow(sqlRequest=sqlRequest)

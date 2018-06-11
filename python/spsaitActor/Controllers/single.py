@@ -6,6 +6,7 @@ from datetime import datetime as dt
 import numpy as np
 
 from spsaitActor.logbook import Logbook
+from spsaitActor.sequencing import SubCmd
 
 
 class CcdList(object):
@@ -103,9 +104,8 @@ class Exposure(CcdList):
                             obsdate=self.start.isoformat(),
                             exptime=self.exptime,
                             exptype=self.exptype,
-                            quality='OK')
+                            )
         return self.visit
-
 
 
 class Biases(CcdList):
@@ -123,10 +123,9 @@ class Biases(CcdList):
                                 obsdate=ccd.dateobs,
                                 exptime=ccd.exptime,
                                 exptype=ccd.exptype,
-                                quality='OK')
+                                )
 
         return [ccd.visit for ccd in self.ccds]
-
 
 
 class Darks(CcdList):
@@ -144,9 +143,10 @@ class Darks(CcdList):
                                 obsdate=ccd.dateobs,
                                 exptime=ccd.exptime,
                                 exptype=ccd.exptype,
-                                quality='OK')
+                                )
 
         return [ccd.visit for ccd in self.ccds]
+
 
 class ShaThread(QThread):
     shut = {'r': 'red', 'b': '', 'rb': '', 'br': ''}
@@ -258,9 +258,9 @@ class CcdThread(QThread):
         self.activated = False
 
     def failure(self):
-        sequence = [utils.CmdSeq(self.ccdActor, 'clearExposure'),
-                    utils.CmdSeq(self.ccdActor, 'disconnect controller=fee', tempo=10),
-                    utils.CmdSeq(self.ccdActor, 'connect controller=fee')]
+        sequence = [SubCmd(actor=self.ccdActor, cmdStr='clearExposure'),
+                    SubCmd(actor=self.ccdActor, cmdStr='disconnect controller=fee', tempo=10),
+                    SubCmd(actor=self.ccdActor, cmdStr='connect controller=fee')]
 
         return sequence
 
@@ -309,8 +309,6 @@ class CalibThread(CcdThread):
         self.exposureId = filename[:10]
 
         CcdThread.storeCamExposure(self, keyvar)
-
-
 
 
 class Bias(CalibThread):

@@ -66,9 +66,13 @@ class SpsaitActor(actorcore.ICC.ICC):
                 if cmdVar.didFail:
                     cmd.warn('subCommand=%i,%s' % (id, lastKeywords.canonical(delimiter=';')[5:]))
                 else:
-                    cmd.inform('subCommand=%i,""' % id)
+                    returnStr = ''
                     if subCmd.getVisit:
-                        experiment.addVisits(newVisits=lastKeywords['newVisits'].values)
+                        newVisits = lastKeywords['newVisits'].values
+                        experiment.addVisits(newVisits=newVisits)
+                        returnStr = ';'.join(newVisits)
+
+                    cmd.inform('subCommand=%i,"%s"' % (id, returnStr))
 
                 self.waitUntil(end=(time.time() + subCmd.tempo))
 
