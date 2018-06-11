@@ -18,7 +18,6 @@ class TopCmd(object):
         self.vocab = [
             ('ping', '', self.ping),
             ('status', '', self.status),
-            ('adjust', 'slitalign <exptime>', self.adjust),
             ('test', '', self.test),
             ('abort', '', self.abort),
         ]
@@ -45,14 +44,6 @@ class TopCmd(object):
         self.actor.abortShutters(cmd)
 
         cmd.finish("text='Aborting'")
-
-    def adjust(self, cmd):
-        expTime = cmd.cmd.keywords['exptime'].values[0]
-        if expTime > 0:
-            self.actor.expTime = expTime
-            cmd.finish("text='Adjusting exptime to %.2f'" % expTime)
-        else:
-            cmd.fail("text='expTime must be positive'")
 
     def test(self, cmd):
 
