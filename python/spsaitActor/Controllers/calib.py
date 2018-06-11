@@ -39,30 +39,6 @@ class calib(QThread):
 
         return sequence
 
-    def background(self, exptime, nb, arm):
-        spsait = self.actor.name
-        return nb * [SubCmd(spsait, "expose exptime=%.2f %s" % (exptime, arm), timeLim=exptime + 500, doRetry=True)]
-
-    def noLight(self):
-        return 2 * [SubCmd('dcb', "labsphere attenuator=0")]
-
-    def imstability(self, exptime, nb, delay, arc, duplicate, attenCmd, optArgs):
-        spsait = self.actor.name
-        sequence = [SubCmd('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
-
-        acquisition = (duplicate - 1) * [SubCmd(spsait,
-                                                "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
-                                                timeLim=500 + exptime,
-                                                doRetry=True)]
-        acquisition += [SubCmd(spsait,
-                               "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
-                               timeLim=500 + exptime,
-                               doRetry=True,
-                               tempo=delay)]
-
-        sequence += nb * acquisition
-
-        return sequence
 
     def start(self, cmd=None):
         QThread.start(self)

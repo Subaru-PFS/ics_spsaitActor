@@ -22,9 +22,6 @@ class CalibCmd(object):
             ('bias', '[<duplicate>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doBias),
             ('dark', '<exptime> [<duplicate>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doDarks),
             ('calib', '[<nbias>] [<ndarks>] [<exptime>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doBasicCalib),
-
-            ('imstab','', self.doImstab),
-            ('background', '', self.doBackground),
         ]
 
         # Define typed command arguments for the above commands.
@@ -155,87 +152,3 @@ class CalibCmd(object):
                                    comments=comments)
 
         cmd.finish()
-
-
-    @threaded
-    def doBackground(self, cmd):
-        e = False
-        arm = ''
-        cmdKeys = cmd.cmd.keywords
-        dcbKeys = self.actor.models['dcb']
-
-        exptime = cmdKeys['exptime'].values[0]
-        nb = cmdKeys['nb'].values[0]
-        force = True if "force" in cmdKeys else False
-
-        arm = 'red' if 'red' in cmdKeys else arm
-        arm = 'blue' if 'blue' in cmdKeys else arm
-
-        if exptime <= 0:
-            raise Exception("exptime must be > 0")
-        if nb <= 0:
-            raise Exception("nb > 0 ")
-
-        sequence = self.controller.noLight()
-        self.actor.processSequence(self.name, cmd, sequence)
-
-        if not force:
-            flux = dcbKeys.keyVarDict['photodiode'].getValue()
-            if np.isnan(flux) or flux > 2e-3:
-                raise Exception("Flux is not null")
-
-        sequence = self.controller.background(exptime, nb, arm)
-        self.actor.processSequence(self.name, cmd, sequence)
-
-        cmd.finish("text='Background Sequence is over'")
-
-
-    @threaded
-    def doImstab(self, cmd):
-        optArgs = []
-        e = False
-
-        cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.safeCall
-
-        exptime = cmdKeys['exptime'].values[0]
-        nb = cmdKeys['nb'].values[0]
-        delay = cmdKeys['delay'].values[0]
-        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
-        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
-
-        switchOff = True if "switchOff" in cmdKeys else False
-
-        optArgs = ['red'] if 'red' in cmdKeys else optArgs
-        optArgs = ['blue'] if 'blue' in cmdKeys else optArgs
-
-        optArgs += (['force'] if "force" in cmdKeys else [])
-
-        arc = None
-        arc = "neon" if "neon" in cmdKeys else arc
-        arc = "hgar" if "hgar" in cmdKeys else arc
-        arc = "xenon" if "xenon" in cmdKeys else arc
-
-        if exptime <= 0:
-            raise Exception("exptime must be > 0")
-        if nb <= 1:
-            raise Exception("nb > 1 ")
-        if delay <= 0:
-            raise Exception("delay > 0 ")
-        if duplicate <= 0:
-            raise Exception("duplicate > 0 ")
-
-        try:
-            sequence = self.controller.imstability(exptime, nb, delay, arc, duplicate, attenCmd, optArgs)
-            self.actor.processSequence(self.name, cmd, sequence)
-            msg = 'Image stability Sequence is over'
-
-        except Exception as e:
-            msg = self.actor.strTraceback(e)
-
-        if arc is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
-
-        ender = cmd.fail if e else cmd.finish
-        ender("text='%s'" % msg)
-
