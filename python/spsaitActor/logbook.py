@@ -2,7 +2,7 @@ import sqlite3
 
 
 class Logbook:
-    engine = '///home/arnaud/data/ait/ait-operation.db'
+    engine = '///data/ait/ait-alignment.db'
 
     @staticmethod
     def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, anomalies=''):
@@ -56,6 +56,7 @@ class Logbook:
         c = conn.cursor()
         c.execute("""SELECT MAX(experimentId) FROM Experiment""")
         (experimentId,) = c.fetchone()
+        experimentId = -1 if experimentId is None else experimentId
         return experimentId
 
     @staticmethod

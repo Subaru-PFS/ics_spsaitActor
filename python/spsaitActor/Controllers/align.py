@@ -27,7 +27,7 @@ class align(QThread):
                                 timeLim=180)]
 
             sequence += duplicate * [SubCmd(actor='sac',
-                                            cmdStr='expose exptime=%.2f' % exptime,
+                                            cmdStr='ccd expose exptime=%.2f' % exptime,
                                             timeLim=30,
                                             getVisit=True)]
         return sequence

@@ -70,7 +70,7 @@ class AlignCmd(object):
                                             duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='SAC Alignment',
+                                   seqtype='SAC_Alignment',
                                    name=name,
                                    comments=comments)
 
