@@ -5,6 +5,7 @@ import logging
 import time
 
 import actorcore.ICC
+from opscore.utility.qstr import qstr
 from twisted.internet import reactor
 
 from spsaitActor.sequencing import Experiment
@@ -38,6 +39,10 @@ class SpsaitActor(actorcore.ICC.ICC):
 
         self.doStop = False
 
+    @property
+    def specToAlign(self):
+        return self.config.getint('spsait', 'specToAlign')
+
     def safeCall(self, doRaise=True, doRetry=False, **kwargs):
 
         cmd = kwargs["forUserCmd"]
@@ -62,18 +67,14 @@ class SpsaitActor(actorcore.ICC.ICC):
             for id, subCmd in enumerate(sequence):
                 cmdVar = self.safeCall(doRaise=False, **(subCmd.build(cmd)))
                 lastKeywords = cmdVar.replyList[-1].keywords
+                returnStr = lastKeywords.canonical(delimiter=';')
 
-                if cmdVar.didFail:
-                    cmd.warn('subCommand=%i,%s' % (id, lastKeywords.canonical(delimiter=';')[5:]))
-                else:
-                    returnStr = ''
-                    if subCmd.getVisit:
-                        newVisits = lastKeywords['newVisits'].values
-                        experiment.addVisits(newVisits=newVisits)
-                        returnStr = ';'.join(newVisits)
+                if subCmd.getVisit and not cmdVar.didFail:
+                    newVisits = lastKeywords['newVisits'].values
+                    experiment.addVisits(newVisits=newVisits)
+                    returnStr=';'.join(newVisits)
 
-                    cmd.inform('subCommand=%i,"%s"' % (id, returnStr))
-
+                cmd.inform('subCommand=%i,%i,%s' % (id, cmdVar.didFail, qstr(returnStr)))
                 self.waitUntil(end=(time.time() + subCmd.tempo))
 
         except:
