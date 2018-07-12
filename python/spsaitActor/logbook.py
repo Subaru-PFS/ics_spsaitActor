@@ -2,7 +2,7 @@ import sqlite3
 
 
 class Logbook:
-    engine = '///home/arnaud/data/ait/ait-operation.db'
+    engine = '///data/ait/ait-alignment.db'
 
     @staticmethod
     def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, anomalies=''):
@@ -41,7 +41,6 @@ class Logbook:
     def newRow(sqlRequest):
         conn = sqlite3.connect(Logbook.engine)
         c = conn.cursor()
-        print('sqlRequest=', sqlRequest)
         try:
             c.execute(sqlRequest)
             conn.commit()
@@ -56,6 +55,8 @@ class Logbook:
         c = conn.cursor()
         c.execute("""SELECT MAX(experimentId) FROM Experiment""")
         (experimentId,) = c.fetchone()
+        experimentId = experimentId if experimentId is not None else 0
+
         return experimentId
 
     @staticmethod
