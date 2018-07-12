@@ -27,9 +27,39 @@ class align(QThread):
                                 timeLim=180)]
 
             sequence += duplicate * [SubCmd(actor='sac',
-                                            cmdStr='expose exptime=%.2f' % exptime,
+                                            cmdStr='ccd expose exptime=%.2f' % exptime,
                                             timeLim=30,
                                             getVisit=True)]
+        return sequence
+
+    def slitalign(self, exptime, targetedFiber, lowBound, upBound, nbPosition, duplicate):
+
+        if targetedFiber:
+            sequence = [SubCmd(actor='breva',
+                               cmdStr='goto %s' % targetedFiber,
+                               timeLim=180)]
+        else:
+            sequence = []
+
+        posName = ['X', 'Y', 'Z', 'U', 'V', 'W']
+        enuActor = 'enu_sm%i' % self.actor.specToAlign
+        enuKeys = self.actor.models[enuActor].keyVarDict
+
+        step = (upBound - lowBound) / (nbPosition - 1)
+
+        for i in range(nbPosition):
+            slitPos = [lowBound + i * step] + list(enuKeys['slit'])[1:]
+            posAbsolute = ' '.join(['%s=%s' % (name, value) for name, value in zip(posName, slitPos)])
+
+            sequence += [SubCmd(actor=enuActor,
+                                cmdStr='slit move absolute %s' % posAbsolute,
+                                timeLim=180)]
+
+            sequence += duplicate * [SubCmd(actor='sac',
+                                            cmdStr='ccd expose exptime=%.2f' % exptime,
+                                            timeLim=30,
+                                            getVisit=True)]
+
         return sequence
 
     def start(self, cmd=None):

@@ -17,10 +17,12 @@ class AlignCmd(object):
         #
         self.name = "align"
         self.vocab = [
-            ('sac', 'align <exptime> <focus> [<lowBound>] [<upBound>] [<nbPosition>] [<duplicate>] '
-                    '[<name>] [<comments>]', self.sacAlign),
+            ('sac',
+             'align <exptime> <focus> [<lowBound>] [<upBound>] [<nbPosition>] [<duplicate>] [<name>] [<comments>]',
+             self.sacAlign),
 
-            ('slit', 'throughfocus', self.slitAlign),
+            ('slit', 'throughfocus <exptime> <lowBound> <upBound> [<fiber>] [<nbPosition>] [<duplicate>] [<name>] [<comments>]',
+             self.slitAlign),
             ('detector', 'throughfocus', self.detAlign),
         ]
 
@@ -33,6 +35,8 @@ class AlignCmd(object):
                                         keys.Key("nbPosition", types.Int(), help="Number of position"),
                                         keys.Key("duplicate", types.Int(),
                                                  help="exposure duplicate per position (1 is default)"),
+                                        keys.Key("fiber", types.String(),
+                                                 help='fiber to aim'),
                                         keys.Key("name", types.String(),
                                                  help='experiment name'),
                                         keys.Key("comments", types.String(),
@@ -70,16 +74,44 @@ class AlignCmd(object):
                                             duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='SAC Alignment',
+                                   seqtype='SAC_Alignment',
                                    name=name,
                                    comments=comments)
 
         cmd.finish()
 
-
     @threaded
     def slitAlign(self, cmd):
-        pass
+        self.actor.resetSequence()
+
+        cmdKeys = cmd.cmd.keywords
+
+        exptime = cmdKeys['exptime'].values[0]
+        lowBound = cmdKeys['lowBound'].values[0]
+        upBound = cmdKeys['upBound'].values[0]
+        nbPosition = cmdKeys['nbPosition'].values[0] if 'nbPosition' in cmdKeys else 2
+        duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
+        targetedFiber = cmdKeys['fiber'].values[0] if 'fiber' in cmdKeys else False
+
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+
+        sequence = self.controller.slitalign(exptime=exptime,
+                                             targetedFiber=targetedFiber,
+                                             lowBound=lowBound,
+                                             upBound=upBound,
+                                             nbPosition=nbPosition,
+                                             duplicate=duplicate)
+
+        for sub in sequence:
+            print (sub.actor + ' ' + sub.cmdStr)
+
+        self.actor.processSequence(cmd, sequence,
+                                   seqtype='Slit_Alignment',
+                                   name=name,
+                                   comments=comments)
+
+        cmd.finish()
 
     @threaded
     def detAlign(self, cmd):
