@@ -36,7 +36,7 @@ class align(QThread):
 
         if targetedFiber:
             sequence = [SubCmd(actor='breva',
-                               cmdStr='goto %s' % targetedFiber,
+                               cmdStr='goto fiber=%s' % targetedFiber,
                                timeLim=180)]
         else:
             sequence = []
@@ -48,7 +48,7 @@ class align(QThread):
         step = (upBound - lowBound) / (nbPosition - 1)
 
         for i in range(nbPosition):
-            slitPos = [lowBound + i * step] + list(enuKeys['slit'])[1:]
+            slitPos = [round(lowBound + i * step, 6)] + list(enuKeys['slit'])[1:]
             posAbsolute = ' '.join(['%s=%s' % (name, value) for name, value in zip(posName, slitPos)])
 
             sequence += [SubCmd(actor=enuActor,
@@ -58,6 +58,24 @@ class align(QThread):
             sequence += duplicate * [SubCmd(actor='sac',
                                             cmdStr='ccd expose exptime=%.2f' % exptime,
                                             timeLim=30,
+                                            getVisit=True)]
+
+        return sequence
+
+    def detalign(self, exptime, cam, startPosition, upBound, nbPosition, duplicate):
+        sequence = []
+        xcuActor = 'xcu_%s' % cam
+        step = (upBound - max(startPosition)) / (nbPosition - 1)
+
+        for i in range(nbPosition):
+            posA, posB, posC = startPosition + i * step
+            sequence += [SubCmd(actor=xcuActor,
+                                cmdStr='motors moveCcd a=%i b=%i c=%i microns abs' % (posA, posB, posC),
+                                timeLim=180)]
+
+            sequence += duplicate * [SubCmd(actor='spsait',
+                                            cmdStr='single arc exptime=%.2f cam=%s' % (exptime, cam),
+                                            timeLim=180 + exptime,
                                             getVisit=True)]
 
         return sequence

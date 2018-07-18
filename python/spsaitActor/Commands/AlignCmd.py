@@ -3,8 +3,9 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+import numpy as np
 from enuActor.utils.wrap import threaded
-
+from spsaitActor.sequencing import SubCmd
 
 class AlignCmd(object):
     def __init__(self, actor):
@@ -23,7 +24,9 @@ class AlignCmd(object):
 
             ('slit', 'throughfocus <exptime> <lowBound> <upBound> [<fiber>] [<nbPosition>] [<duplicate>] [<name>] [<comments>]',
              self.slitAlign),
-            ('detector', 'throughfocus', self.detAlign),
+
+            ('detector', 'throughfocus <exptime> <cam> [<lowBound>] [<upBound>] [<nbPosition>] [<startPosition>] [<duplicate>] [<switchOn>]'
+                         ' [<switchOff>] [<attenuator>] [force] [<drpFolder>] [<name>] [<comments>]', self.detAlign),
         ]
 
         # Define typed command arguments for the above commands.
@@ -35,8 +38,20 @@ class AlignCmd(object):
                                         keys.Key("nbPosition", types.Int(), help="Number of position"),
                                         keys.Key("duplicate", types.Int(),
                                                  help="exposure duplicate per position (1 is default)"),
+                                        keys.Key("cam", types.String(),
+                                                 help='single camera to take exposure from'),
+                                        keys.Key("startPosition", types.Float() * (1, 3), help="Start from this position a,b,c.\
+                                                 The 3 motors positions are required. If it is not set the lowBound position is used. "),
+                                        keys.Key("switchOn", types.String() * (1, None),
+                                                 help='which arc lamp to switch on.'),
+                                        keys.Key("switchOff", types.String() * (1, None),
+                                                 help='which arc lamp to switch off.'),
+                                        keys.Key("attenuator", types.Int(),
+                                                 help='Attenuator value.'),
                                         keys.Key("fiber", types.String(),
                                                  help='fiber to aim'),
+                                        keys.Key("drpFolder", types.String(),
+                                                 help='detrend exposures to this folder'),
                                         keys.Key("name", types.String(),
                                                  help='experiment name'),
                                         keys.Key("comments", types.String(),
@@ -103,9 +118,6 @@ class AlignCmd(object):
                                              nbPosition=nbPosition,
                                              duplicate=duplicate)
 
-        for sub in sequence:
-            print (sub.actor + ' ' + sub.cmdStr)
-
         self.actor.processSequence(cmd, sequence,
                                    seqtype='Slit_Alignment',
                                    name=name,
@@ -115,4 +127,60 @@ class AlignCmd(object):
 
     @threaded
     def detAlign(self, cmd):
-        pass
+        head = False
+        tail = False
+        self.actor.resetSequence()
+
+        cmdKeys = cmd.cmd.keywords
+
+        exptime = cmdKeys['exptime'].values[0]
+        cam = cmdKeys['cam'].values[0]
+        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else 0
+        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 290
+        nbPosition = cmdKeys['nbPosition'].values[0] if 'nbPosition' in cmdKeys else 10
+        startPosition = cmdKeys['startPosition'].values if "startPosition" in cmdKeys else 3*[lowBound]
+
+        switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
+        switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
+        attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
+        force = 'force' if 'force' in cmdKeys else ''
+
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+
+        if exptime <= 0:
+            raise Exception("exptime must be > 0")
+
+        if drpFolder:
+            self.actor.safeCall(actor='drp',
+                                cmdStr='set drpFolder=%s' % drpFolder,
+                                forUserCmd=cmd)
+
+        if switchOn:
+            head = SubCmd(actor='dcb',
+                          cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
+                          timeLim=300)
+
+        if switchOff:
+            tail = SubCmd(actor='dcb',
+                          cmdStr="arc off=%s" % ','.join(switchOff),
+                          timeLim=300)
+
+        sequence = self.controller.detalign(exptime=exptime,
+                                            cam=cam,
+                                            startPosition=np.array(startPosition),
+                                            upBound=upBound,
+                                            nbPosition=nbPosition,
+                                            duplicate=duplicate)
+
+        self.actor.processSequence(cmd, sequence,
+                                   seqtype='Detector_Alignment',
+                                   name=name,
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
+
+        cmd.finish()
