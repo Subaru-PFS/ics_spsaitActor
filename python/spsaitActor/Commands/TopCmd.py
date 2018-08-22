@@ -3,7 +3,7 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.sequencing import SubCmd
+from spsaitActor.logbook import Logbook
 
 class TopCmd(object):
     def __init__(self, actor):
@@ -20,11 +20,13 @@ class TopCmd(object):
             ('status', '', self.status),
             ('test', '', self.test),
             ('abort', '', self.abort),
+            ('logbook', '<experimentId> <anomalies>', self.setNewAnomalies)
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_spsait", (1, 1),
-                                        keys.Key("exptime", types.Float(), help="The exposure time"),
+                                        keys.Key("experimentId", types.Int(), help="experimentId to update"),
+                                        keys.Key("anomalies", types.String(), help='anomalies message'),
                                         )
 
     def ping(self, cmd):
@@ -47,7 +49,17 @@ class TopCmd(object):
 
     def test(self, cmd):
 
-        print (type(cmd))
-        print (cmd.rawCmd)
+        print(type(cmd))
+        print(cmd.rawCmd)
 
-        cmd.fail('text="oups"')
+        cmd.fail('text="..."')
+
+    def setNewAnomalies(self, cmd):
+        cmdKeys = cmd.cmd.keywords
+
+        experimentId = cmdKeys['experimentId'].values[0]
+        anomalies = cmdKeys['anomalies'].values[0]
+
+        Logbook.newAnomalies(experimentId=experimentId, anomalies=anomalies)
+
+        cmd.finish()
