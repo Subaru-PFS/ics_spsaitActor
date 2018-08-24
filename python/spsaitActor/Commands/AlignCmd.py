@@ -18,15 +18,9 @@ class AlignCmd(object):
         #
         self.name = "align"
         self.vocab = [
-            ('sac',
-             'align <exptime> <focus> [<lowBound>] [<upBound>] [<nbPosition>] [<duplicate>] [<name>] [<comments>]',
-             self.sacAlign),
-
-            ('slit', 'throughfocus <exptime> <lowBound> <upBound> [<fiber>] [<nbPosition>] [<duplicate>] [<name>] [<comments>]',
-             self.slitAlign),
-
-            ('detector', 'throughfocus <exptime> <cam> [<lowBound>] [<upBound>] [<nbPosition>] [<startPosition>] [<duplicate>] [<switchOn>]'
-                         ' [<switchOff>] [<attenuator>] [force] [<drpFolder>] [<name>] [<comments>]', self.detAlign),
+            ('sac','align <exptime> <focus> <nbPosition> [<lowBound>] [<upBound>] [<duplicate>] [<name>] [<comments>]', self.sacAlign),
+            ('slit','throughfocus <exptime> <nbPosition> <lowBound> <upBound> [<fiber>] [<duplicate>] [<name>] [<comments>]', self.slitAlign),
+            ('detector', 'throughfocus <exptime> <cam> <nbPosition> [<lowBound>] [<upBound>] [<startPosition>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<drpFolder>] [<name>] [<comments>]', self.detAlign),
         ]
 
         # Define typed command arguments for the above commands.
@@ -73,9 +67,9 @@ class AlignCmd(object):
 
         exptime = cmdKeys['exptime'].values[0]
         focus = cmdKeys['focus'].values[0]
+        nbPosition = cmdKeys['nbPosition'].values[0]
         lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else -300
         upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 500
-        nbPosition = cmdKeys['nbPosition'].values[0] if 'nbPosition' in cmdKeys else 2
         duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
@@ -104,7 +98,7 @@ class AlignCmd(object):
         exptime = cmdKeys['exptime'].values[0]
         lowBound = cmdKeys['lowBound'].values[0]
         upBound = cmdKeys['upBound'].values[0]
-        nbPosition = cmdKeys['nbPosition'].values[0] if 'nbPosition' in cmdKeys else 2
+        nbPosition = cmdKeys['nbPosition'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
         targetedFiber = cmdKeys['fiber'].values[0] if 'fiber' in cmdKeys else False
 
@@ -135,9 +129,9 @@ class AlignCmd(object):
 
         exptime = cmdKeys['exptime'].values[0]
         cam = cmdKeys['cam'].values[0]
+        nbPosition = cmdKeys['nbPosition'].values[0]
         lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else 0
         upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 290
-        nbPosition = cmdKeys['nbPosition'].values[0] if 'nbPosition' in cmdKeys else 10
         startPosition = cmdKeys['startPosition'].values if "startPosition" in cmdKeys else 3*[lowBound]
 
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
