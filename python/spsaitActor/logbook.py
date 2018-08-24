@@ -2,7 +2,7 @@ import sqlite3
 
 
 class Logbook:
-    engine = '///data/ait/ait-alignment.db'
+    engine = '///data/ait/ait-operation.db'
 
     @staticmethod
     def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, anomalies=''):
