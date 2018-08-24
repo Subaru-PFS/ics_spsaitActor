@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 
-import sys
-
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from enuActor.utils.wrap import threaded
+from spsaitActor.sequencing import SubCmd
 
 
 class DitherCmd(object):
@@ -19,21 +18,34 @@ class DitherCmd(object):
         #
         self.name = "dither"
         self.vocab = [
-            ('dither', 'flat <nb> <exptime> <shift> [@(microns|pixels)] [@(blue|red)] [<duplicate>]'
-                       ' [<attenuator>] [switchOff]', self.ditherFlat),
-            ('dither', 'psf <exptime> <shift> [@(microns|pixels)] [@(blue|red)] [<duplicate>]'
-                       ' [@(neon|hgar|xenon|krypton)] [<attenuator>] [switchOff] [force]', self.ditherPsf)
+            ('dither',
+             'flat <exptime> <shift> <nbPosition> [@(microns|pixels)] [<duplicate>] [switchOff] [<attenuator>] [force] [<drpFolder>] [<name>] [<comments>] [<cam>] [<cams>]',
+             self.ditherFlat),
+            ('dither',
+             'psf <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<drpFolder>] [<name>] [<comments>] [<cam>] [<cams>]',
+             self.ditherPsf)
 
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_dither", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
-                                        keys.Key("nb", types.Int(), help="Number of position"),
                                         keys.Key("shift", types.Float(), help="shift in microns/pixels"),
+                                        keys.Key("nbPosition", types.Int(), help="Number of position"),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
                                         keys.Key("duplicate", types.Int(),
                                                  help="duplicate number of flat per position(1 is default)"),
+                                        keys.Key("switchOn", types.String() * (1, None),
+                                                 help='which arc lamp to switch on.'),
+                                        keys.Key("switchOff", types.String() * (1, None),
+                                                 help='which arc lamp to switch off.'),
+                                        keys.Key("drpFolder", types.String(), help='detrend exposures to this folder'),
+                                        keys.Key("name", types.String(), help='experiment name'),
+                                        keys.Key("comments", types.String(), help='operator comments'),
+                                        keys.Key("cam", types.String(), help='single camera to take exposure from'),
+                                        keys.Key("cams", types.String() * (1,),
+                                                 help='list of camera to take exposure from'),
+
                                         )
 
     @property
@@ -45,84 +57,108 @@ class DitherCmd(object):
 
     @threaded
     def ditherFlat(self, cmd):
-        ex = False
-        arm = ''
+        cams = False
+        self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.safeCall
-        enuKeys = self.actor.models['enu']
 
-        nbImage = cmdKeys['nb'].values[0]
         exptime = cmdKeys['exptime'].values[0]
-        fact = (1./(29.4)) if "pixels" in cmdKeys else 0.001
+        fact = (1. / (29.4)) if "pixels" in cmdKeys else 0.001
         shift = cmdKeys['shift'].values[0] * fact
+        nbPosition = cmdKeys['nbPosition'].values[0]
+
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
-        switchOff = True if "switchOff" in cmdKeys else False
-        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
+        attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
+        force = 'force' if 'force' in cmdKeys else ''
+        switchOff = True if 'switchOff' in cmdKeys else False
 
-        arm = 'red' if 'red' in cmdKeys else arm
-        arm = 'blue' if 'blue' in cmdKeys else arm
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
 
-        [state, mode, x, y, z, u, v, w] = enuKeys.keyVarDict['slit'].getValue()
+        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
+        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
-        if nbImage <= 0:
-            raise Exception("nbImage > 0")
 
-        sequence = self.controller.ditherFlat(x, y, z, u, v, w, shift, nbImage, exptime, arm, duplicate, attenCmd)
+        if drpFolder:
+            self.actor.safeCall(actor='drp',
+                                cmdStr='set drpFolder=%s' % drpFolder,
+                                forUserCmd=cmd)
 
-        try:
-            self.actor.processSequence(self.name, cmd, sequence)
-            msg = 'Dithered Flat sequence is over'
-        except Exception as ex:
-            msg = formatException(ex, sys.exc_info()[2])
+        head = SubCmd(actor='dcb', cmdStr="arc on=halogen %s %s" % (attenuator, force), timeLim=300)
+        tail = SubCmd(actor='dcb', cmdStr="arc off=halogen", timeLim=300) if switchOff else False
 
-        if switchOff:
-            cmdCall(actor='dcb', cmdStr="halogen off", forUserCmd=cmd)
+        sequence = self.controller.ditherflat(exptime=exptime,
+                                              cams=cams,
+                                              shift=shift,
+                                              nbPosition=nbPosition,
+                                              duplicate=duplicate)
 
-        ender = cmd.fail if ex else cmd.finish
-        ender("text='%s'" % msg)
+        self.actor.processSequence(cmd, sequence,
+                                   seqtype='Dithered_Flats',
+                                   name=name,
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
 
+        cmd.finish()
 
     @threaded
     def ditherPsf(self, cmd):
-        ex = False
-        optArgs = []
+        cams = False
+        head = False
+        tail = False
+        self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
-        cmdCall = self.actor.safeCall
 
         exptime = cmdKeys['exptime'].values[0]
-        fact = (1./(29.4)) if "pixels" in cmdKeys else 0.001
+        fact = (1. / (29.4)) if "pixels" in cmdKeys else 0.001
         shift = cmdKeys['shift'].values[0] * fact
+
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
-        switchOff = True if "switchOff" in cmdKeys else False
-        attenCmd = "attenuator=%i" % cmdKeys['attenuator'].values[0] if "attenuator" in cmdKeys else ""
+        attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
+        force = 'force' if 'force' in cmdKeys else ''
+        switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
+        switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
 
-        optArgs = ['red'] if 'red' in cmdKeys else optArgs
-        optArgs = ['blue'] if 'blue' in cmdKeys else optArgs
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
 
-        optArgs += (['force'] if "force" in cmdKeys else [])
-
-        arc = None
-        arc = "neon" if "neon" in cmdKeys else arc
-        arc = "hgar" if "hgar" in cmdKeys else arc
-        arc = "xenon" if "xenon" in cmdKeys else arc
+        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
+        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
 
-        sequence = self.controller.ditherPsf(shift, exptime, arc, duplicate, attenCmd, optArgs)
+        if drpFolder:
+            self.actor.safeCall(actor='drp',
+                                cmdStr='set drpFolder=%s' % drpFolder,
+                                forUserCmd=cmd)
 
-        try:
-            self.actor.processSequence(self.name, cmd, sequence)
-            msg = 'Dithering PSF sequence is over'
-        except Exception as ex:
-            msg = formatException(ex, sys.exc_info()[2])
+        if switchOn:
+            head = SubCmd(actor='dcb',
+                          cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
+                          timeLim=300)
 
-        if arc is not None and switchOff:
-            cmdCall(actor='dcb', cmdStr="%s off" % arc, timeLim=60, forUserCmd=cmd)
+        if switchOff:
+            tail = SubCmd(actor='dcb',
+                          cmdStr="arc off=%s" % ','.join(switchOff),
+                          timeLim=300)
 
-        ender = cmd.fail if ex else cmd.finish
-        ender("text='%s'" % msg)
+        sequence = self.controller.ditherpsf(exptime=exptime,
+                                             cams=cams,
+                                             shift=shift,
+                                             duplicate=duplicate)
+
+        self.actor.processSequence(cmd, sequence,
+                                   seqtype='Dithered_Psf',
+                                   name=name,
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
+
+        cmd.finish()

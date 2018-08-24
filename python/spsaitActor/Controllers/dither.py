@@ -1,16 +1,16 @@
-from builtins import range
 import logging
-
+from collections import OrderedDict
 from actorcore.QThread import QThread
 import numpy as np
 
-from spsaitActor.utils import CmdSeq
+from spsaitActor.sequencing import SubCmd
 
 
 class dither(QThread):
+    posName = ['X', 'Y', 'Z', 'U', 'V', 'W']
+
     def __init__(self, actor, name, loglevel=logging.DEBUG):
         """This sets up the connections to/from the hub, the logger, and the twisted reactor.
-
         :param actor: spsaitActor
         :param name: controller name
         """
@@ -18,36 +18,46 @@ class dither(QThread):
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
 
-    def ditherFlat(self, x, y, z, u, v, w, shift, nbImage, exptime, arm, duplicate, attenCmd):
-        spsait = self.actor.name
+    def ditherflat(self, exptime, cams, shift, nbPosition, duplicate):
+        sequence = []
 
-        sequence = duplicate * [
-            CmdSeq(spsait, "expose flat exptime=%.2f %s %s" % (exptime, attenCmd, arm), timeLim=exptime + 500,
-                   doRetry=True)]
+        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
 
-        for i in range(nbImage):
-            sequence += [CmdSeq('enu', "slit dither pix=-%.5f" % shift)]
-            sequence += duplicate * [
-                CmdSeq(spsait, "expose flat exptime=%.2f %s" % (exptime, arm), timeLim=exptime + 500, doRetry=True)]
+        flats = duplicate * [SubCmd(actor='spsait',
+                                    cmdStr='single flat exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                                    timeLim=180 + exptime,
+                                    getVisit=True)]
+        sequence += flats
 
-        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
+        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        enuActors = ['enu_sm%i' % specId for specId in specIds]
+        moveToStart = []
 
-        for i in range(nbImage):
-            sequence += [CmdSeq('enu', "slit dither pix=%.5f " % shift)]
-            sequence += duplicate * [
-                CmdSeq(spsait, "expose flat exptime=%.2f %s" % (exptime, arm), timeLim=exptime + 500, doRetry=True)]
+        for enuActor in enuActors:
+            posAbsolute = list(self.actor.models[enuActor].keyVarDict['slit'])
+            posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(dither.posName, posAbsolute)])
+            moveToStart.append(SubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute, timeLim=180))
 
-        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
-        sequence += duplicate * [
-            CmdSeq(spsait, "expose flat exptime=%.2f %s" % (exptime, arm), timeLim=exptime + 500, doRetry=True)]
+        negShift = [SubCmd(actor=enuActor, cmdStr="slit dither pix=-%.5f" % shift) for enuActor in enuActors]
+        posShift = [SubCmd(actor=enuActor, cmdStr="slit dither pix=%.5f" % shift) for enuActor in enuActors]
+
+        for i in range(nbPosition):
+            sequence += negShift
+            sequence += flats
+
+        sequence += moveToStart
+
+        for i in range(nbPosition):
+            sequence += posShift
+            sequence += flats
+
+        sequence += moveToStart
+        sequence += flats
 
         return sequence
 
-    def ditherPsf(self, shift, exptime, arc, duplicate, attenCmd, optArgs):
-
-        spsait = self.actor.name
-        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
-
+    def ditherpsf(self, exptime, cams, shift, duplicate):
+        sequence = []
         positions = np.array([(0, -1, -1, 0, 0, 0),
                               (0, -1, 0, 0, 0, 0),
                               (0, -1, 1, 0, 0, 0),
@@ -60,15 +70,24 @@ class dither(QThread):
 
         positions = positions * shift
 
-        for x, y, z, u, v, w in positions:
-            sequence += [
-                CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (x, y, z, u, v, w))]
-            sequence += duplicate * [CmdSeq(spsait,
-                                            "expose arc exptime=%.2f %s" % (exptime, ' '.join(optArgs)),
-                                            timeLim=500 + exptime,
-                                            doRetry=True)]
+        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        enuActors = ['enu_sm%i' % specId for specId in specIds]
+
+        for position in positions:
+            posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(dither.posName, position)])
+
+            sequence += [SubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute) for enuActor in enuActors]
+
+            sequence += duplicate * [SubCmd(actor='spsait',
+                                    cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                                    timeLim=180 + exptime,
+                                    getVisit=True)]
 
         return sequence
+
+    def start(self, cmd=None):
+        QThread.start(self)
 
     def handleTimeout(self):
         """| Is called when the thread is idle
