@@ -1,10 +1,9 @@
-from __future__ import division
-from builtins import range
 import logging
+from collections import OrderedDict
 
 import numpy as np
 from actorcore.QThread import QThread
-from spsaitActor.utils import CmdSeq
+from spsaitActor.sequencing import SubCmd
 
 
 class defocus(QThread):
@@ -19,59 +18,38 @@ class defocus(QThread):
         self.logger.setLevel(loglevel)
 
     def getExptime(self, exptime, focus):
-        pmean = np.array([ 0.03920849,  5.04702675, -1.24206109,  2.611892])
+        pmean = np.array([0.03920849, 5.04702675, -1.24206109, 2.611892])
         return exptime * np.polyval(pmean, focus)
 
-    def defocus(self, exptime, arc, attenCmd, nbPosition, duplicate, lowBound, upBound, optArgs):
-        spsait = self.actor.name
+    def defocus(self, exptime, nbPosition, cams, duplicate):
+        sequence = []
+        step = 9 / (nbPosition - 1)
+        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        enuActors = ['enu_sm%i' % specId for specId in specIds]
 
-        sequence = [CmdSeq('dcb', "%s on %s" % (arc, attenCmd), doRetry=True)] if arc is not None else []
+        allHomed = [SubCmd(actor=enuActor, cmdStr='slit move home') for enuActor in enuActors]
 
-        step = ((upBound - lowBound)/ (nbPosition - 1))
-
-        sequence += [
-            CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (lowBound, 0, 0, 0, 0, 0))]
-        focus = lowBound
-
-        cexptime = self.getExptime(exptime, focus)
-        sequence += duplicate * [CmdSeq(spsait,
-                                        "expose arc exptime=%.2f %s" % (cexptime, ' '.join(optArgs)),
-                                        timeLim=500 + cexptime,
-                                        doRetry=True)]
-
-        for i in range((nbPosition/ 2) - 1):
-            sequence += [CmdSeq('enu', "slit focus pix=%.5f" % step)]
-
-            focus += step
+        for i in range(nbPosition):
+            focus = -4.5 + i * step
             cexptime = self.getExptime(exptime, focus)
-            sequence += duplicate * [CmdSeq(spsait,
-                                            "expose arc exptime=%.2f %s" % (cexptime, ' '.join(optArgs)),
-                                            timeLim=500 + cexptime,
-                                            doRetry=True)]
+            moveAbs = [SubCmd(actor=enuActor,
+                              cmdStr='slit move absolute x=%.5f y=0.0 z=0.0 u=0.0 v=0.0 w=0.0' % focus) for enuActor in
+                       enuActors]
 
-        sequence += [CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (0, 0, 0, 0, 0, 0))]
+            sequence += moveAbs
 
-        sequence += [CmdSeq(spsait,
-                            'dither psf exptime=%.2f shift=0.5 pixels duplicate=%i %s' % (exptime,
-                                                                                          duplicate,
-                                                                                          ' '.join(optArgs)),
-                            timeLim=(exptime + 200) * 9 * duplicate)]
+            sequence += duplicate * [SubCmd(actor='spsait',
+                                            cmdStr='single arc exptime=%.2f cams=%s' % (cexptime, ','.join(cams)),
+                                            timeLim=180 + cexptime,
+                                            getVisit=True)]
 
-        focus = 0 if nbPosition % 2 else focus
-        sequence += [
-            CmdSeq('enu', "slit move absolute x=%.5f y=%.5f z=%.5f u=%.5f v=%.5f w=%.5f" % (focus, 0, 0, 0, 0, 0))]
-
-        for i in range((nbPosition/ 2)):
-            sequence += [CmdSeq('enu', "slit focus pix=%.5f" % step)]
-
-            focus += step
-            cexptime = self.getExptime(exptime, focus)
-            sequence += duplicate * [CmdSeq(spsait,
-                                            "expose arc exptime=%.2f %s" % (cexptime, ' '.join(optArgs)),
-                                            timeLim=500 + cexptime,
-                                            doRetry=True)]
+        sequence += allHomed
 
         return sequence
+
+    def start(self, cmd=None):
+        QThread.start(self)
 
     def handleTimeout(self):
         """| Is called when the thread is idle
