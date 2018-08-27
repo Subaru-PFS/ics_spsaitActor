@@ -1,8 +1,8 @@
 import logging
 from collections import OrderedDict
-from actorcore.QThread import QThread
-import numpy as np
 
+import numpy as np
+from actorcore.QThread import QThread
 from spsaitActor.sequencing import SubCmd
 
 
@@ -80,9 +80,11 @@ class dither(QThread):
             sequence += [SubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute) for enuActor in enuActors]
 
             sequence += duplicate * [SubCmd(actor='spsait',
-                                    cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
-                                    timeLim=180 + exptime,
-                                    getVisit=True)]
+                                            cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                                            timeLim=180 + exptime,
+                                            getVisit=True)]
+
+        sequence += [SubCmd(actor=enuActor, cmdStr='slit move home') for enuActor in enuActors]
 
         return sequence
 
