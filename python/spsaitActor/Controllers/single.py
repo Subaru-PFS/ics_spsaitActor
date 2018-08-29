@@ -236,13 +236,14 @@ class CcdThread(QThread):
         cmdVar = self.actor.cmdr.call(**kwargs)
 
         if cmdVar.didFail:
-            print('%s : %s ' % (self.ccdActor, cmdVar.lastReply.canonical()))
+            self.actor.logger.warning('%s : %s ' % (self.ccdActor, cmdVar.lastReply.canonical()))
             self.activated = False
             try:
-                self.actor.processSequence(cmd, self.failure())
-                self.state = 'idle'
-            except:
-                self.state = 'failed'
+                self.failureRoutine(cmd=cmd)
+            except Exception as e:
+                self.actor.logger.warning(self.actor.strTraceback(e))
+
+            self.state = 'idle'
 
     def thrCall(self, **kwargs):
         self.putMsg(partial(self.callCcd, **kwargs))
@@ -257,10 +258,13 @@ class CcdThread(QThread):
 
         self.activated = False
 
-    def failure(self):
+    def failureRoutine(self, cmd):
         sequence = [SubCmd(actor=self.ccdActor, cmdStr='clearExposure'),
                     SubCmd(actor=self.ccdActor, cmdStr='disconnect controller=fee', tempo=10),
                     SubCmd(actor=self.ccdActor, cmdStr='connect controller=fee')]
+
+        for subCmd in sequence:
+            self.actor.safeCall(**(subCmd.build(cmd)))
 
         return sequence
 
