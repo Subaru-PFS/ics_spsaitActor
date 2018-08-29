@@ -1,10 +1,10 @@
 import logging
 import time
-from actorcore.QThread import QThread
-from functools import partial
 from datetime import datetime as dt
-import numpy as np
+from functools import partial
 
+import numpy as np
+from actorcore.QThread import QThread
 from spsaitActor.logbook import Logbook
 from spsaitActor.sequencing import SubCmd
 
@@ -204,6 +204,9 @@ class CcdThread(QThread):
 
         self.state = state
 
+        if state == 'integrating':
+            self.darktime = time.time()
+
     def wipe(self, cmd):
         self.activated = True
         self.thrCall(actor=self.ccdActor, cmdStr='wipe', timeLim=60, forUserCmd=cmd)
@@ -217,12 +220,14 @@ class CcdThread(QThread):
                 raise ValueError
 
             dateobs = self.dateobs()
+            darktime = time.time() - self.darktime
 
         except ValueError:
             return
 
         self.thrCall(actor=self.ccdActor,
-                     cmdStr='read %s visit=%i exptime=%.3f obstime=%s' % (self.exptype, self.visit, exptime, dateobs),
+                     cmdStr='read %s visit=%i exptime=%.3f darktime=%.3f obstime=%s' % (self.exptype, self.visit,
+                                                                                        exptime, darktime, dateobs),
                      timeLim=60,
                      forUserCmd=self.cmd)
 
