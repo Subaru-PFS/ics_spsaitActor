@@ -31,6 +31,7 @@ class Experiment(object):
         self.name = name
         self.seqtype = seqtype
         self.rawCmd = rawCmd
+        self.cmdStr = rawCmd.replace('name="%s"' % name, '').replace('comments="%s"' % comments, '').strip()
         self.comments = comments
         self.visits = []
 
@@ -53,9 +54,6 @@ class Experiment(object):
                                   visitStart=min(self.visits),
                                   visitEnd=max(self.visits),
                                   seqtype=self.seqtype,
-                                  cmdStr=self.rawCmd,
+                                  cmdStr=self.cmdStr,
                                   comments=self.comments
                                   )
-
-
-
