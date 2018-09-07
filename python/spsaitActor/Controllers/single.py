@@ -167,6 +167,11 @@ class ShaThread(QThread):
 
 
 class CcdThread(QThread):
+    armNum = {'1': 'b',
+              '2': 'r',
+              '3': 'n',
+              '4': 'm'}
+
     def __init__(self, actor, exptype, visit, cmd, cam):
         self.cam = cam
         self.smId = int(cam[-1])
@@ -283,11 +288,12 @@ class CcdThread(QThread):
 
         camExposureId = filename.split('.fits')[0]
         exposureId = camExposureId[:-2]
+        arm = self.armNum[camExposureId[-1]]
 
         Logbook.newCamExposure(camExposureId=camExposureId,
                                exposureId=exposureId,
                                smId=self.smId,
-                               arm=self.arm)
+                               arm=arm)
 
         self.isLogged = True
 
