@@ -97,7 +97,7 @@ class DefocusCmd(object):
                                            duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='DefocusedPsf',
+                                   seqtype='defocusedPsf',
                                    name=name,
                                    comments=comments,
                                    head=head,

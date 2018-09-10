@@ -97,7 +97,7 @@ class DitherCmd(object):
                                               duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='Dithered_Flats',
+                                   seqtype='ditheredFlats',
                                    name=name,
                                    comments=comments,
                                    head=head,
@@ -155,7 +155,7 @@ class DitherCmd(object):
                                              duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='Dithered_Psf',
+                                   seqtype='ditheredPsf',
                                    name=name,
                                    comments=comments,
                                    head=head,

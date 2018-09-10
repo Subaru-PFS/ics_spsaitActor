@@ -83,7 +83,7 @@ class AlignCmd(object):
                                             duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='SAC_Alignment',
+                                   seqtype='SacAlignment',
                                    name=name,
                                    comments=comments)
 
@@ -113,7 +113,7 @@ class AlignCmd(object):
                                              duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='Slit_Alignment',
+                                   seqtype='slitAlignment',
                                    name=name,
                                    comments=comments)
 
@@ -171,7 +171,7 @@ class AlignCmd(object):
                                             duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='Detector_Alignment',
+                                   seqtype='detectorAlignment',
                                    name=name,
                                    comments=comments,
                                    head=head,
