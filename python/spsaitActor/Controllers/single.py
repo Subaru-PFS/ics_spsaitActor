@@ -190,7 +190,7 @@ class CcdThread(QThread):
         self.activated = False
 
         ccdKeys = self.actor.models[self.ccdActor]
-        ccdKeys.keyVarDict['exposureState'].addCallback(self.exposureState)
+        ccdKeys.keyVarDict['exposureState'].addCallback(self.exposureState, callNow=False)
         ccdKeys.keyVarDict['filepath'].addCallback(self.storeCamExposure, callNow=False)
 
         enuKeys = self.actor.models[self.enuActor]
@@ -217,7 +217,7 @@ class CcdThread(QThread):
         self.thrCall(actor=self.ccdActor, cmdStr='wipe', timeLim=60, forUserCmd=cmd)
 
     def read(self, keyvar):
-        if not self.activated:
+        if not (self.activated and self.state == 'integrating'):
             return
         try:
             exptime = keyvar.getValue()
@@ -316,6 +316,9 @@ class CalibThread(CcdThread):
 
         CcdThread.__init__(self, actor=actor, exptype=exptype, visit=None, cmd=cmd, cam=cam)
         self.activated = True
+
+    def read(self, keyvar):
+        pass
 
     def storeCamExposure(self, keyvar):
         rootDir, dateDir, filename = keyvar.getValue()
