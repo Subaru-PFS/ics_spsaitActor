@@ -211,7 +211,7 @@ class CalibCmd(object):
                                           cams=cams)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='Image_Stability',
+                                   seqtype='imageStability',
                                    name=name,
                                    comments=comments,
                                    head=head,

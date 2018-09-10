@@ -41,19 +41,20 @@ class calib(QThread):
 
     def imstab(self, exptime, nbPosition, delay, duplicate, cams):
         sequence = []
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
         subseq = (duplicate - 1) * [SubCmd(actor='spsait',
-                                           cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                                           cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
                                            timeLim=180 + exptime,
                                            getVisit=True)]
         subseq += [SubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                          cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
                           timeLim=180 + exptime,
                           tempo=delay,
                           getVisit=True)]
 
         sequence = (nbPosition - 1) * subseq
         sequence += duplicate * [SubCmd(actor='spsait',
-                                        cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                                        cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
                                         timeLim=180 + exptime,
                                         getVisit=True)]
         return sequence
