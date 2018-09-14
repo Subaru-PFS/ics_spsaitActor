@@ -21,7 +21,7 @@ class dither(QThread):
     def ditherflat(self, exptime, cams, shift, nbPosition, duplicate):
         sequence = []
 
-        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+        cams = cams if cams else self.actor.cams
 
         flats = duplicate * [SubCmd(actor='spsait',
                                     cmdStr='single flat exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
@@ -70,7 +70,7 @@ class dither(QThread):
 
         positions = positions * shift
 
-        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+        cams = cams if cams else self.actor.cams
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 

@@ -33,11 +33,6 @@ class calib(QThread):
                                        getVisit=True)]
         return sequence
 
-    def calibration(self, nbias, ndarks, exptime, cams):
-        sequence = self.biases(duplicate=nbias, cams=cams)
-        sequence += self.darks(duplicate=ndarks, exptime=exptime, cams=cams)
-
-        return sequence
 
     def imstab(self, exptime, nbPosition, delay, duplicate, cams):
         sequence = []

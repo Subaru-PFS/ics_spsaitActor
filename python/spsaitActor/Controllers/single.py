@@ -361,7 +361,7 @@ class single(QThread):
         self.logger.setLevel(loglevel)
 
     def expose(self, cmd, exptype, exptime, cams):
-        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+        cams = cams if cams else self.actor.cams
         visit = self.actor.getSeqno(cmd=cmd)
         exposure = Exposure(actor=self.actor,
                             cams=cams,
@@ -385,7 +385,7 @@ class single(QThread):
         return visit
 
     def bias(self, cmd, cams):
-        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+        cams = cams if cams else self.actor.cams
 
         biases = Biases(actor=self.actor,
                         cams=cams,
@@ -401,7 +401,7 @@ class single(QThread):
         return visits
 
     def dark(self, cmd, exptime, cams):
-        cams = cams if cams else self.actor.config.get('spsait', 'cams').split(',')
+        cams = cams if cams else self.actor.cams
 
         darks = Darks(actor=self.actor,
                       cams=cams,

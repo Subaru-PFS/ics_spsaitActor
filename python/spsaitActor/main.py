@@ -43,6 +43,10 @@ class SpsaitActor(actorcore.ICC.ICC):
     def specToAlign(self):
         return self.config.getint('spsait', 'specToAlign')
 
+    @property
+    def cams(self):
+        return self.config.get('spsait', 'cams').split(',')
+
     def safeCall(self, doRaise=True, doRetry=False, **kwargs):
 
         cmd = kwargs["forUserCmd"]
