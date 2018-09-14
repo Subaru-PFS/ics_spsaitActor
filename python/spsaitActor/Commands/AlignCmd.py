@@ -141,7 +141,7 @@ class AlignCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'detalign'
 
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 

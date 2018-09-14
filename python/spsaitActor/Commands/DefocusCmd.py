@@ -68,7 +68,7 @@ class DefocusCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'defocused'
 
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams

@@ -69,7 +69,7 @@ class CalibCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'bias'
 
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
@@ -100,7 +100,7 @@ class CalibCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'dark'
 
         exptime = cmdKeys['exptime'].values[0]
 
@@ -135,7 +135,7 @@ class CalibCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'calib'
 
         ndarks = cmdKeys['ndarks'].values[0] if 'ndarks' in cmdKeys else 5
         exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
@@ -149,7 +149,8 @@ class CalibCmd(object):
                                 cmdStr='set drpFolder=%s' % drpFolder,
                                 forUserCmd=cmd)
 
-        sequence = self.controller.calibration(nbias=nbias, ndarks=ndarks, exptime=exptime, cams=cams)
+        sequence = self.controller.biases(duplicate=nbias, cams=cams)
+        sequence += self.controller.darks(duplicate=ndarks, exptime=exptime, cams=cams)
 
         self.actor.processSequence(cmd, sequence,
                                    seqtype='calib',
@@ -179,7 +180,7 @@ class CalibCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else False
+        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'imstab'
 
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
