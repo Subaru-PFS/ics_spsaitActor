@@ -69,6 +69,7 @@ class DefocusCmd(object):
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
         drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'defocused'
+        doRaise = True if 'drpFolder' in cmdKeys else False
 
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
@@ -79,7 +80,9 @@ class DefocusCmd(object):
         if drpFolder:
             self.actor.safeCall(actor='drp',
                                 cmdStr='set drpFolder=%s' % drpFolder,
-                                forUserCmd=cmd)
+                                forUserCmd=cmd,
+                                doRaise=doRaise,
+                                timeLim=5)
 
         if switchOn:
             head = SubCmd(actor='dcb',
