@@ -1,29 +1,31 @@
 import sqlite3
 
+
 def cleanStr(txt):
     return txt.replace('"', "").strip()
+
 
 class Logbook:
     engine = '///data/ait/ait-operation.db'
 
     @staticmethod
-    def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, cmdError, anomalies=''):
+    def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, startdate, cmdError, anomalies=''):
 
         name = cleanStr(name)
         cmdStr = cleanStr(cmdStr)
         comments = cleanStr(comments)
         cmdError = cleanStr(cmdError)
         anomalies = cleanStr(anomalies)
-
-        sqlRequest = """INSERT INTO Experiment VALUES (%i, "%s", %i, %i, "%s", "%s", "%s", "%s", ' ', "%s");""" % (experimentId,
-                                                                                                                   name,
-                                                                                                                   visitStart,
-                                                                                                                   visitEnd,
-                                                                                                                   seqtype,
-                                                                                                                   cmdStr,
-                                                                                                                   comments,
-                                                                                                                   anomalies,
-                                                                                                                   cmdError)
+        sqlRequest = """INSERT INTO Experiment VALUES (%i, "%s", %i, %i, "%s", "%s", "%s", "%s", "%s", "%s");""" % (experimentId,
+                                                                                                                    name,
+                                                                                                                    visitStart,
+                                                                                                                    visitEnd,
+                                                                                                                    seqtype,
+                                                                                                                    cmdStr,
+                                                                                                                    comments,
+                                                                                                                    anomalies,
+                                                                                                                    startdate,
+                                                                                                                    cmdError)
         Logbook.newRow(sqlRequest=sqlRequest)
 
     @staticmethod

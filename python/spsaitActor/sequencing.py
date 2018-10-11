@@ -1,6 +1,6 @@
 from opscore.utility.qstr import qstr
 from spsaitActor.logbook import Logbook
-
+from datetime import datetime as dt
 
 class CmdFail(ValueError):
     def __init__(self, *args):
@@ -42,6 +42,7 @@ class Experiment(object):
     def __init__(self, head, sequence, tail, name, seqtype, rawCmd, comments):
         object.__init__(self)
         self.id = Logbook.lastExperimentId() + 1
+        self.startdate = dt.utcnow().replace(microsecond=0).isoformat()
         self.head = head
         self.sequence = sequence
         self.tail = tail
@@ -90,5 +91,6 @@ class Experiment(object):
                                   cmdStr=self.cmdStr,
                                   name=self.name,
                                   comments=self.comments,
+                                  startdate=self.startdate,
                                   cmdError=self.cmdError
                                   )
