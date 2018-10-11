@@ -1,9 +1,17 @@
+from opscore.utility.qstr import qstr
 from spsaitActor.logbook import Logbook
+
+
+class CmdFail(ValueError):
+    def __init__(self, *args):
+        ValueError.__init__(self, *args)
 
 
 class SubCmd(object):
     def __init__(self, actor, cmdStr, timeLim=600, doRetry=False, tempo=5.0, getVisit=False):
         object.__init__(self)
+        self.finished = False
+        self.id = 0
         self.actor = actor
         self.cmdStr = cmdStr
         self.timeLim = timeLim
@@ -15,6 +23,9 @@ class SubCmd(object):
     def fullCmd(self):
         return '%s %s' % (self.actor, self.cmdStr)
 
+    def setId(self, id):
+        self.id = id
+
     def build(self, cmd):
         return dict(actor=self.actor,
                     cmdStr=self.cmdStr,
@@ -22,19 +33,31 @@ class SubCmd(object):
                     timeLim=self.timeLim,
                     doRetry=self.doRetry)
 
+    def inform(self, cmd, didFail, returnStr):
+        cmd.inform('subCommand=%i,%i,%s' % (self.id, didFail, qstr(returnStr)))
+        self.finished = True
+
 
 class Experiment(object):
-    def __init__(self, subCmds, name, seqtype, rawCmd, comments):
+    def __init__(self, head, sequence, tail, name, seqtype, rawCmd, comments):
         object.__init__(self)
         self.id = Logbook.lastExperimentId() + 1
-        self.subCmds = subCmds
+        self.head = head
+        self.sequence = sequence
+        self.tail = tail
         self.name = name
         self.seqtype = seqtype
         self.rawCmd = rawCmd
-        self.cmdStr = rawCmd.replace('name="%s"' % name, '').replace('comments="%s"' % comments, '').replace('"',
-                                                                                                             "").strip()
+        self.cmdStr = rawCmd.replace('name="%s"' % name, '').replace('comments="%s"' % comments, '')
         self.comments = comments
+        self.cmdError = ''
         self.visits = []
+
+        self.registerCmds()
+
+    @property
+    def subCmds(self):
+        return self.head + self.sequence + self.tail
 
     @property
     def info(self):
@@ -44,17 +67,28 @@ class Experiment(object):
                                          self.comments,
                                          ';'.join([sub.fullCmd for sub in self.subCmds]))
 
+    def registerCmds(self):
+        for id, subCmd in enumerate(self.subCmds):
+            subCmd.setId(id=id)
+
     def addVisits(self, newVisits):
         newVisits = [int(visit) for visit in newVisits]
         self.visits.extend(newVisits)
 
+    def handleError(self, cmd, error):
+        for unfinished in [subCmd for subCmd in self.head + self.sequence if not subCmd.finished]:
+            unfinished.inform(cmd=cmd, didFail=True, returnStr='')
+
+        self.cmdError = error
+
     def store(self):
         if self.visits:
             Logbook.newExperiment(experimentId=self.id,
-                                  name=self.name,
                                   visitStart=min(self.visits),
                                   visitEnd=max(self.visits),
                                   seqtype=self.seqtype,
                                   cmdStr=self.cmdStr,
-                                  comments=self.comments
+                                  name=self.name,
+                                  comments=self.comments,
+                                  cmdError=self.cmdError
                                   )
