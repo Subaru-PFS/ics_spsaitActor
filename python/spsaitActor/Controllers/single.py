@@ -18,6 +18,7 @@ class CcdList(object):
         self.ccds = []
 
         self.start = dt.utcnow()
+        self.timeout = 10
 
     def __del__(self):
         self.exit()
@@ -378,8 +379,10 @@ class single(QThread):
         exposure.waitAndHandle(state='reading', timeout=60 + exptime)
         exposure.waitAndHandle(state='idle', timeout=180, force=True)
 
-        if not exposure.filesExist():
-            raise Exception('no exposure has been created')
+        start = time.time()
+        while not exposure.filesExist():
+            if time.time() - start > exposure.timeout:
+                raise Exception('no exposure has been created')
 
         visit = exposure.store()
         return visit
@@ -394,8 +397,10 @@ class single(QThread):
         biases.waitAndHandle(state='reading', timeout=60)
         biases.waitAndHandle(state='idle', timeout=180, force=True)
 
-        if not biases.filesExist():
-            raise Exception('no exposure has been created')
+        start = time.time()
+        while not biases.filesExist():
+            if time.time() - start > biases.timeout:
+                raise Exception('no exposure has been created')
 
         visits = biases.store()
         return visits
@@ -411,8 +416,10 @@ class single(QThread):
         darks.waitAndHandle(state='reading', timeout=60 + exptime)
         darks.waitAndHandle(state='idle', timeout=180, force=True)
 
-        if not darks.filesExist():
-            raise Exception('no exposure has been created')
+        start = time.time()
+        while not darks.filesExist():
+            if time.time() - start > darks.timeout:
+                raise Exception('no exposure has been created')
 
         visits = darks.store()
         return visits
