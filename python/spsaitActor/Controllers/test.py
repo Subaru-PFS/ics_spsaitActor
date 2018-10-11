@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.utils import CmdSeq
+
 
 class test(QThread):
     def __init__(self, actor, name, loglevel=logging.DEBUG):
@@ -14,18 +14,8 @@ class test(QThread):
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
 
-    def test(self, arm):
-        xcu = self.actor.arm2xcu[arm]
-        sequence = [CmdSeq('enu', "slit status", tempo=2),
-                    CmdSeq('enu', "rexm status", tempo=2),
-                    CmdSeq(xcu, "motors status", tempo=2),
-                    CmdSeq(xcu, "cooler status", tempo=2),
-                    CmdSeq('enu', "slit status", tempo=2),
-                    CmdSeq('enu', "rexm status", tempo=2),
-                    CmdSeq(xcu, "motors status", tempo=2),
-                    CmdSeq(xcu, "cooler status", tempo=2),
-                    ]
-        return sequence
+    def start(self, cmd=None):
+        QThread.start(self)
 
     def handleTimeout(self):
         """| Is called when the thread is idle

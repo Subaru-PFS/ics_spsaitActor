@@ -5,6 +5,7 @@ import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from spsaitActor.logbook import Logbook
 
+
 class TopCmd(object):
     def __init__(self, actor):
         # This lets us access the rest of the actor.
@@ -18,7 +19,6 @@ class TopCmd(object):
         self.vocab = [
             ('ping', '', self.ping),
             ('status', '', self.status),
-            ('test', '', self.test),
             ('abort', '', self.abort),
             ('logbook', '<experimentId> <anomalies>', self.setNewAnomalies)
         ]
@@ -41,18 +41,10 @@ class TopCmd(object):
         cmd.finish()
 
     def abort(self, cmd):
-
         self.actor.doStop = True
         self.actor.abortShutters(cmd)
 
         cmd.finish("text='Aborting'")
-
-    def test(self, cmd):
-
-        print(type(cmd))
-        print(cmd.rawCmd)
-
-        cmd.fail('text="..."')
 
     def setNewAnomalies(self, cmd):
         cmdKeys = cmd.cmd.keywords
