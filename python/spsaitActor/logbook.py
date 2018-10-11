@@ -1,19 +1,29 @@
 import sqlite3
 
+def cleanStr(txt):
+    return txt.replace('"', "").strip()
 
 class Logbook:
     engine = '///data/ait/ait-operation.db'
 
     @staticmethod
-    def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, anomalies=''):
-        sqlRequest = """INSERT INTO Experiment VALUES (%i, '%s', %i, %i, '%s', '%s', '%s', '%s');""" % (experimentId,
-                                                                                                        name,
-                                                                                                        visitStart,
-                                                                                                        visitEnd,
-                                                                                                        seqtype,
-                                                                                                        cmdStr,
-                                                                                                        comments,
-                                                                                                        anomalies)
+    def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, cmdError, anomalies=''):
+
+        name = cleanStr(name)
+        cmdStr = cleanStr(cmdStr)
+        comments = cleanStr(comments)
+        cmdError = cleanStr(cmdError)
+        anomalies = cleanStr(anomalies)
+
+        sqlRequest = """INSERT INTO Experiment VALUES (%i, "%s", %i, %i, "%s", "%s", "%s", "%s", ' ', "%s");""" % (experimentId,
+                                                                                                                   name,
+                                                                                                                   visitStart,
+                                                                                                                   visitEnd,
+                                                                                                                   seqtype,
+                                                                                                                   cmdStr,
+                                                                                                                   comments,
+                                                                                                                   anomalies,
+                                                                                                                   cmdError)
         Logbook.newRow(sqlRequest=sqlRequest)
 
     @staticmethod
@@ -64,7 +74,7 @@ class Logbook:
         conn = sqlite3.connect(Logbook.engine)
         c = conn.cursor()
         c.execute(
-            '''select visit,exptype,spectrograph,arm,quality from Exposure inner join CamExposure on Exposure.exposureId=CamExposure.exposureId where visit=%i''' % visit)
+            """select visit,exptype,spectrograph,arm,quality from Exposure inner join CamExposure on Exposure.exposureId=CamExposure.exposureId where visit=%i""" % visit)
         return c.fetchall()
 
     @staticmethod
@@ -72,13 +82,14 @@ class Logbook:
         conn = sqlite3.connect(Logbook.engine)
         c = conn.cursor()
 
-        c.execute('''select visitStart,visitEnd from Experiment where ExperimentId=%i''' % experimentId)
+        c.execute("""select visitStart,visitEnd from Experiment where ExperimentId=%i""" % experimentId)
         [(visitStart, visitEnd)] = c.fetchall()
 
         return visitStart, visitEnd
 
     @staticmethod
     def newAnomalies(experimentId, anomalies):
-        sqlRequest = 'UPDATE Experiment SET anomalies = "%s" WHERE experimentId=%i' % (anomalies.replace('"', ""),
-                                                                                       experimentId)
+        anomalies = cleanStr(anomalies)
+        sqlRequest = """UPDATE Experiment SET anomalies = "%s" WHERE experimentId=%i""" % (anomalies,
+                                                                                           experimentId)
         Logbook.newRow(sqlRequest=sqlRequest)
