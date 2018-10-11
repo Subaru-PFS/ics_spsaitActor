@@ -5,10 +5,8 @@ import logging
 import time
 
 import actorcore.ICC
-from opscore.utility.qstr import qstr
+from spsaitActor.sequencing import Experiment, CmdFail
 from twisted.internet import reactor
-
-from spsaitActor.sequencing import Experiment
 
 
 class SpsaitActor(actorcore.ICC.ICC):
@@ -56,38 +54,40 @@ class SpsaitActor(actorcore.ICC.ICC):
 
         if cmdVar.didFail and doRaise:
             reply = cmdVar.replyList[-1]
-            raise Exception("actor=%s %s" % (reply.header.actor,
-                                             reply.keywords.canonical(delimiter=';')))
+            raise CmdFail("actor=%s %s" % (reply.header.actor, reply.keywords.canonical(delimiter=';')))
         return cmdVar
 
-    def processSequence(self, cmd, sequence, seqtype, name='', comments='', head=False, tail=False):
-        sequence = [head] + sequence if head else sequence
-        sequence = sequence + [tail] if tail else sequence
+    def processSubCmd(self, cmd, experiment, subCmd, returnStr='', doRaise=True):
+        cmdVar = self.safeCall(doRaise=doRaise, **(subCmd.build(cmd)))
+        lastKeywords = cmdVar.replyList[-1].keywords
 
-        experiment = Experiment(subCmds=sequence, name=name, seqtype=seqtype, rawCmd=cmd.rawCmd, comments=comments)
+        if subCmd.getVisit and not cmdVar.didFail:
+            newVisits = lastKeywords['newVisits'].values
+            experiment.addVisits(newVisits=newVisits)
+            returnStr = ';'.join(newVisits)
+
+        subCmd.inform(cmd=cmd, didFail=cmdVar.didFail, returnStr=returnStr)
+        self.waitUntil(end=(time.time() + subCmd.tempo))
+
+    def processSequence(self, cmd, sequence, seqtype, name='', comments='', head=None, tail=None):
+        head = [] if head is None else head
+        tail = [] if tail is None else tail
+        experiment = Experiment(head=head, sequence=sequence, tail=tail, name=name, seqtype=seqtype, rawCmd=cmd.rawCmd,
+                                comments=comments)
         cmd.inform('newExperiment=%s' % experiment.info)
 
         try:
-            for id, subCmd in enumerate(sequence):
-                cmdVar = self.safeCall(doRaise=False, **(subCmd.build(cmd)))
-                lastKeywords = cmdVar.replyList[-1].keywords
-                returnStr = lastKeywords.canonical(delimiter=';')
+            for subCmd in (head + sequence):
+                self.processSubCmd(cmd=cmd, experiment=experiment, subCmd=subCmd)
 
-                if subCmd.getVisit and not cmdVar.didFail:
-                    newVisits = lastKeywords['newVisits'].values
-                    experiment.addVisits(newVisits=newVisits)
-                    returnStr=';'.join(newVisits)
-
-                cmd.inform('subCommand=%i,%i,%s' % (id, cmdVar.didFail, qstr(returnStr)))
-                self.waitUntil(end=(time.time() + subCmd.tempo))
-
-        except:
-            experiment.store()
-            if tail:
-                self.safeCall(doRaise=False, **(tail.build(cmd)))
+        except Exception as e:
+            experiment.handleError(cmd=cmd, error=self.strTraceback(e))
             raise
 
-        experiment.store()
+        finally:
+            for subCmd in tail:
+                self.processSubCmd(cmd=cmd, experiment=experiment, subCmd=subCmd, doRaise=False)
+            experiment.store()
 
     def getSeqno(self, cmd):
         cmdVar = self.cmdr.call(actor='seqno',
