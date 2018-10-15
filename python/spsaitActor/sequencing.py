@@ -8,16 +8,14 @@ class CmdFail(ValueError):
 
 
 class SubCmd(object):
-    def __init__(self, actor, cmdStr, timeLim=600, doRetry=False, tempo=5.0, getVisit=False):
+    def __init__(self, actor, cmdStr, timeLim=120, tempo=5.0):
         object.__init__(self)
         self.finished = False
         self.id = 0
         self.actor = actor
         self.cmdStr = cmdStr
         self.timeLim = timeLim
-        self.doRetry = doRetry
         self.tempo = tempo
-        self.getVisit = getVisit
 
     @property
     def fullCmd(self):
@@ -30,8 +28,7 @@ class SubCmd(object):
         return dict(actor=self.actor,
                     cmdStr=self.cmdStr,
                     forUserCmd=cmd,
-                    timeLim=self.timeLim,
-                    doRetry=self.doRetry)
+                    timeLim=self.timeLim)
 
     def inform(self, cmd, didFail, returnStr):
         cmd.inform('subCommand=%i,%i,%s' % (self.id, didFail, qstr(returnStr)))
@@ -94,3 +91,12 @@ class Experiment(object):
                                   startdate=self.startdate,
                                   cmdError=self.cmdError
                                   )
+
+
+class Sequence(list):
+    def __init__(self, *args):
+        list.__init__(self, *args)
+
+    def addSubCmd(self, actor, cmdStr, duplicate=1, timeLim=120, tempo=5.0):
+        for i in range(duplicate):
+            self.append(SubCmd(actor=actor, cmdStr=cmdStr, timeLim=timeLim, tempo=tempo))

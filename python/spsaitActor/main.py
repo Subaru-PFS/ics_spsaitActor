@@ -57,17 +57,26 @@ class SpsaitActor(actorcore.ICC.ICC):
             raise CmdFail("actor=%s %s" % (reply.header.actor, reply.keywords.canonical(delimiter=';')))
         return cmdVar
 
-    def processSubCmd(self, cmd, experiment, subCmd, returnStr='', doRaise=True):
+    def processSubCmd(self, cmd, experiment, subCmd, doRaise=True):
         cmdVar = self.safeCall(doRaise=doRaise, **(subCmd.build(cmd)))
-        lastKeywords = cmdVar.replyList[-1].keywords
 
-        if subCmd.getVisit and not cmdVar.didFail:
-            newVisits = lastKeywords['newVisits'].values
-            experiment.addVisits(newVisits=newVisits)
-            returnStr = ';'.join(newVisits)
+        try:
+            returnStr = self.recordVisit(cmdVar=cmdVar, experiment=experiment)
+        except KeyError:
+            returnStr = ''
 
         subCmd.inform(cmd=cmd, didFail=cmdVar.didFail, returnStr=returnStr)
+
         self.waitUntil(end=(time.time() + subCmd.tempo))
+
+    def recordVisit(self, cmdVar, experiment):
+        if cmdVar.didFail:
+            return ''
+
+        lastKeywords = cmdVar.replyList[-1].keywords
+        newVisits = lastKeywords['newVisits'].values
+        experiment.addVisits(newVisits=newVisits)
+        return ';'.join(newVisits)
 
     def processSequence(self, cmd, sequence, seqtype, name='', comments='', head=None, tail=None):
         head = [] if head is None else head
