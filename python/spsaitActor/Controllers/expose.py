@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import SubCmd
+from spsaitActor.sequencing import Sequence
 
 
 class expose(QThread):
@@ -17,13 +17,14 @@ class expose(QThread):
 
     def arcs(self, exptype, exptime, duplicate, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
+        seq = Sequence()
 
-        sequence = duplicate * [SubCmd(actor='spsait',
-                                       cmdStr='single %s exptime=%.2f %s' % (exptype, exptime, cams),
-                                       timeLim=180 + exptime,
-                                       getVisit=True)]
+        seq.addSubCmd(actor='spsait',
+                      cmdStr='single %s exptime=%.2f %s' % (exptype, exptime, cams),
+                      timeLim=120 + exptime,
+                      duplicate=duplicate)
 
-        return sequence
+        return seq
 
     def start(self, cmd=None):
         QThread.start(self)

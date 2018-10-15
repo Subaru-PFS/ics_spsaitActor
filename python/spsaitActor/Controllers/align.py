@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import SubCmd
+from spsaitActor.sequencing import Sequence
 
 
 class align(QThread):
@@ -17,29 +17,25 @@ class align(QThread):
 
     def sacalign(self, exptime, focus, lowBound, upBound, nbPosition, duplicate):
         step = (upBound - lowBound) / (nbPosition - 1)
-        sequence = [SubCmd(actor='sac',
-                           cmdStr='move detector=%.2f abs' % focus,
-                           timeLim=180)]
+
+        seq = Sequence()
+        seq.addSubCmd(actor='sac', cmdStr='move detector=%.2f abs' % focus)
 
         for i in range(nbPosition):
-            sequence += [SubCmd(actor='sac',
-                                cmdStr='move penta=%.2f abs' % (lowBound + i * step),
-                                timeLim=180)]
+            seq.addSubCmd(actor='sac',
+                          cmdStr='move penta=%.2f abs' % (lowBound + i * step))
 
-            sequence += duplicate * [SubCmd(actor='sac',
-                                            cmdStr='ccd expose exptime=%.2f' % exptime,
-                                            timeLim=30,
-                                            getVisit=True)]
-        return sequence
+            seq.addSubCmd(actor='sac',
+                          cmdStr='ccd expose exptime=%.2f' % exptime,
+                          duplicate=duplicate,
+                          timeLim=60 + exptime)
+        return seq
 
     def slitalign(self, exptime, targetedFiber, lowBound, upBound, nbPosition, duplicate):
+        seq = Sequence()
 
         if targetedFiber:
-            sequence = [SubCmd(actor='breva',
-                               cmdStr='goto fiber=%s' % targetedFiber,
-                               timeLim=180)]
-        else:
-            sequence = []
+            seq.addSubCmd(actor='breva', cmdStr='goto fiber=%s' % targetedFiber)
 
         posName = ['X', 'Y', 'Z', 'U', 'V', 'W']
         enuActor = 'enu_sm%i' % self.actor.specToAlign
@@ -51,34 +47,30 @@ class align(QThread):
             slitPos = [round(lowBound + i * step, 6)] + list(enuKeys['slit'])[1:]
             posAbsolute = ' '.join(['%s=%s' % (name, value) for name, value in zip(posName, slitPos)])
 
-            sequence += [SubCmd(actor=enuActor,
-                                cmdStr='slit move absolute %s' % posAbsolute,
-                                timeLim=180)]
+            seq.addSubCmd(actor=enuActor,
+                          cmdStr='slit move absolute %s' % posAbsolute)
 
-            sequence += duplicate * [SubCmd(actor='sac',
-                                            cmdStr='ccd expose exptime=%.2f' % exptime,
-                                            timeLim=30,
-                                            getVisit=True)]
-
-        return sequence
+            seq.addSubCmd(actor='sac',
+                          cmdStr='ccd expose exptime=%.2f' % exptime,
+                          duplicate=duplicate,
+                          timeLim=60 + exptime)
+        return seq
 
     def detalign(self, exptime, cam, startPosition, upBound, nbPosition, duplicate):
-        sequence = []
+        seq = Sequence()
         xcuActor = 'xcu_%s' % cam
         step = (upBound - max(startPosition)) / (nbPosition - 1)
 
         for i in range(nbPosition):
             posA, posB, posC = startPosition + i * step
-            sequence += [SubCmd(actor=xcuActor,
-                                cmdStr='motors moveCcd a=%i b=%i c=%i microns abs' % (posA, posB, posC),
-                                timeLim=180)]
+            seq.addSubCmd(actor=xcuActor,
+                          cmdStr='motors moveCcd a=%i b=%i c=%i microns abs' % (posA, posB, posC))
 
-            sequence += duplicate * [SubCmd(actor='spsait',
-                                            cmdStr='single arc exptime=%.2f cam=%s' % (exptime, cam),
-                                            timeLim=180 + exptime,
-                                            getVisit=True)]
-
-        return sequence
+            seq.addSubCmd(actor='spsait',
+                          cmdStr='single arc exptime=%.2f cam=%s' % (exptime, cam),
+                          duplicate=duplicate,
+                          timeLim=120 + exptime)
+        return seq
 
     def start(self, cmd=None):
         QThread.start(self)

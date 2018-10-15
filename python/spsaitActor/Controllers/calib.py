@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import SubCmd
+from spsaitActor.sequencing import Sequence
 
 
 class calib(QThread):
@@ -17,42 +17,38 @@ class calib(QThread):
 
     def biases(self, duplicate, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
-
-        sequence = duplicate * [SubCmd(actor='spsait',
-                                       cmdStr='single bias %s' % cams,
-                                       timeLim=180,
-                                       getVisit=True)]
-        return sequence
+        seq = Sequence()
+        seq.addSubCmd(actor='spsait',
+                      cmdStr='single bias %s' % cams,
+                      duplicate=duplicate)
+        return seq
 
     def darks(self, duplicate, exptime, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
-
-        sequence = duplicate * [SubCmd(actor='spsait',
-                                       cmdStr='single dark exptime=%.2f %s' % (exptime, cams),
-                                       timeLim=exptime + 180,
-                                       getVisit=True)]
-        return sequence
-
+        seq = Sequence()
+        seq.addSubCmd(actor='spsait',
+                      cmdStr='single dark exptime=%.2f %s' % (exptime, cams),
+                      duplicate=duplicate,
+                      timeLim=120 + exptime)
+        return seq
 
     def imstab(self, exptime, nbPosition, delay, duplicate, cams):
-        sequence = []
         cams = 'cams=%s' % ','.join(cams) if cams else ''
-        subseq = (duplicate - 1) * [SubCmd(actor='spsait',
-                                           cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
-                                           timeLim=180 + exptime,
-                                           getVisit=True)]
-        subseq += [SubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
-                          timeLim=180 + exptime,
-                          tempo=delay,
-                          getVisit=True)]
+        seq = Sequence()
 
-        sequence = (nbPosition - 1) * subseq
-        sequence += duplicate * [SubCmd(actor='spsait',
-                                        cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
-                                        timeLim=180 + exptime,
-                                        getVisit=True)]
-        return sequence
+        for i in range(nbPosition):
+            tempo = 0 if i == (nbPosition - 1) else delay
+            seq.addSubCmd(actor='spsait',
+                          cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
+                          timeLim=120 + exptime,
+                          duplicate=duplicate - 1)
+
+            seq.addSubCmd(actor='spsait',
+                          cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
+                          timeLim=120 + exptime,
+                          tempo=tempo)
+
+        return seq
 
     def start(self, cmd=None):
         QThread.start(self)

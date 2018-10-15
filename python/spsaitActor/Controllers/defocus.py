@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 import numpy as np
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import SubCmd
+from spsaitActor.sequencing import Sequence, SubCmd
 
 
 class defocus(QThread):
@@ -22,31 +22,31 @@ class defocus(QThread):
         return exptime * np.polyval(pmean, focus)
 
     def defocus(self, exptime, nbPosition, cams, duplicate):
-        sequence = []
         step = 9.0 / (nbPosition - 1)
         cams = cams if cams else self.actor.cams
+
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
         enuActors = ['enu_sm%i' % specId for specId in specIds]
+
+        seq = Sequence()
 
         allHomed = [SubCmd(actor=enuActor, cmdStr='slit move home') for enuActor in enuActors]
 
         for i in range(nbPosition):
             focus = -4.5 + i * step
             cexptime = self.getExptime(exptime, focus)
+
             moveAbs = [SubCmd(actor=enuActor,
                               cmdStr='slit move absolute x=%.5f y=0.0 z=0.0 u=0.0 v=0.0 w=0.0' % focus) for enuActor in
                        enuActors]
+            seq += moveAbs
+            seq.addSubCmd(actor='spsait',
+                          cmdStr='single arc exptime=%.2f cams=%s' % (cexptime, ','.join(cams)),
+                          timeLim=120 + cexptime,
+                          duplicate=duplicate)
+        seq += allHomed
 
-            sequence += moveAbs
-
-            sequence += duplicate * [SubCmd(actor='spsait',
-                                            cmdStr='single arc exptime=%.2f cams=%s' % (cexptime, ','.join(cams)),
-                                            timeLim=180 + cexptime,
-                                            getVisit=True)]
-
-        sequence += allHomed
-
-        return sequence
+        return seq
 
     def start(self, cmd=None):
         QThread.start(self)
