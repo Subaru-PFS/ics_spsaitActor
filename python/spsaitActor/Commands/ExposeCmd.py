@@ -59,8 +59,8 @@ class ExposeCmd(object):
 
     @threaded
     def doArc(self, cmd):
-        head = False
-        tail = False
+        head = None
+        tail = None
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
@@ -100,14 +100,14 @@ class ExposeCmd(object):
                                 timeLim=5)
 
         if switchOn:
-            head = SubCmd(actor='dcb',
+            head = [SubCmd(actor='dcb',
                           cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                          timeLim=300)
+                          timeLim=300)]
 
         if switchOff:
-            tail = SubCmd(actor='dcb',
+            tail = [SubCmd(actor='dcb',
                           cmdStr="arc off=%s" % ','.join(switchOff),
-                          timeLim=300)
+                          timeLim=300)]
 
         sequence = self.controller.arcs(exptype=exptype,
                                         exptime=exptime,

@@ -121,8 +121,8 @@ class AlignCmd(object):
 
     @threaded
     def detAlign(self, cmd):
-        head = False
-        tail = False
+        head = None
+        tail = None
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
@@ -157,14 +157,13 @@ class AlignCmd(object):
                                 timeLim=5)
 
         if switchOn:
-            head = SubCmd(actor='dcb',
+            head = [SubCmd(actor='dcb',
                           cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                          timeLim=300)
+                          timeLim=300)]
 
         if switchOff:
-            tail = SubCmd(actor='dcb',
-                          cmdStr="arc off=%s" % ','.join(switchOff),
-                          timeLim=300)
+            tail = [SubCmd(actor='dcb',
+                           cmdStr="arc off=%s" % ','.join(switchOff))]
 
         sequence = self.controller.detalign(exptime=exptime,
                                             cam=cam,

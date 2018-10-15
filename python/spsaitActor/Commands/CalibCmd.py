@@ -170,8 +170,8 @@ class CalibCmd(object):
 
     @threaded
     def imstab(self, cmd):
-        head = False
-        tail = False
+        head = None
+        tail = None
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
@@ -203,17 +203,19 @@ class CalibCmd(object):
         if drpFolder:
             self.actor.safeCall(actor='drp',
                                 cmdStr='set drpFolder=%s' % drpFolder,
-                                forUserCmd=cmd)
+                                forUserCmd=cmd,
+                                doRaise=doRaise,
+                                timeLim=5)
 
         if switchOn:
-            head = SubCmd(actor='dcb',
+            head = [SubCmd(actor='dcb',
                           cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                          timeLim=300)
+                          timeLim=300)]
 
         if switchOff:
-            tail = SubCmd(actor='dcb',
+            tail = [SubCmd(actor='dcb',
                           cmdStr="arc off=%s" % ','.join(switchOff),
-                          timeLim=300)
+                          timeLim=300)]
 
         sequence = self.controller.imstab(exptime=exptime,
                                           nbPosition=nbPosition,

@@ -90,8 +90,8 @@ class DitherCmd(object):
                                 doRaise=doRaise,
                                 timeLim=5)
 
-        head = SubCmd(actor='dcb', cmdStr="arc on=halogen %s %s" % (attenuator, force), timeLim=300)
-        tail = SubCmd(actor='dcb', cmdStr="arc off=halogen", timeLim=300) if switchOff else False
+        head = [SubCmd(actor='dcb', cmdStr="arc on=halogen %s %s" % (attenuator, force), timeLim=300)]
+        tail = [SubCmd(actor='dcb', cmdStr="arc off=halogen", timeLim=300)] if switchOff else None
 
         sequence = self.controller.ditherflat(exptime=exptime,
                                               cams=cams,
@@ -111,8 +111,8 @@ class DitherCmd(object):
     @threaded
     def ditherPsf(self, cmd):
         cams = False
-        head = False
-        tail = False
+        head = None
+        tail = None
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
@@ -146,14 +146,14 @@ class DitherCmd(object):
                                 timeLim=5)
 
         if switchOn:
-            head = SubCmd(actor='dcb',
+            head = [SubCmd(actor='dcb',
                           cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                          timeLim=300)
+                          timeLim=300)]
 
         if switchOff:
-            tail = SubCmd(actor='dcb',
+            tail = [SubCmd(actor='dcb',
                           cmdStr="arc off=%s" % ','.join(switchOff),
-                          timeLim=300)
+                          timeLim=300)]
 
         sequence = self.controller.ditherpsf(exptime=exptime,
                                              cams=cams,

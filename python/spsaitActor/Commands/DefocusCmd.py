@@ -52,8 +52,8 @@ class DefocusCmd(object):
     @threaded
     def defocus(self, cmd):
         cams = False
-        head = False
-        tail = False
+        head = None
+        tail = None
         self.actor.resetSequence()
 
         cmdKeys = cmd.cmd.keywords
@@ -85,14 +85,14 @@ class DefocusCmd(object):
                                 timeLim=5)
 
         if switchOn:
-            head = SubCmd(actor='dcb',
+            head = [SubCmd(actor='dcb',
                           cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                          timeLim=300)
+                          timeLim=300)]
 
         if switchOff:
-            tail = SubCmd(actor='dcb',
+            tail = [SubCmd(actor='dcb',
                           cmdStr="arc off=%s" % ','.join(switchOff),
-                          timeLim=300)
+                          timeLim=300)]
 
         sequence = self.controller.defocus(exptime=exptime,
                                            nbPosition=nbPosition,
