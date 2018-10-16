@@ -67,7 +67,7 @@ class SpsaitActor(actorcore.ICC.ICC):
 
         subCmd.inform(cmd=cmd, didFail=cmdVar.didFail, returnStr=returnStr)
 
-        self.waitUntil(end=(time.time() + subCmd.tempo))
+        self.waitUntil(end=(time.time() + subCmd.tempo), doRaise=doRaise)
 
     def recordVisit(self, cmdVar, experiment):
         if cmdVar.didFail:
@@ -96,6 +96,7 @@ class SpsaitActor(actorcore.ICC.ICC):
         finally:
             for subCmd in tail:
                 self.processSubCmd(cmd=cmd, experiment=experiment, subCmd=subCmd, doRaise=False)
+
             experiment.store()
 
     def getSeqno(self, cmd):
@@ -118,9 +119,9 @@ class SpsaitActor(actorcore.ICC.ICC):
     def resetSequence(self):
         self.doStop = False
 
-    def waitUntil(self, end):
+    def waitUntil(self, end, doRaise=True):
         while time.time() < end:
-            if self.doStop:
+            if self.doStop and doRaise:
                 raise UserWarning('Stop requested')
 
     def connectionMade(self):
