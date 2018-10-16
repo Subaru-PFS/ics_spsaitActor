@@ -4,7 +4,7 @@
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from enuActor.utils.wrap import threaded
-from spsaitActor.sequencing import SubCmd
+from spsaitActor.sequencing import SubCmd, Sequence
 
 
 class TestCmd(object):
@@ -35,13 +35,16 @@ class TestCmd(object):
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
 
-        head = [SubCmd(actor='enu_sm1', cmdStr='rexm status')]
-        tail = [SubCmd(actor='enu_sm1', cmdStr='bsh status')]
-        sequence = [SubCmd(actor='enu_sm1', cmdStr='slit status')]
-        sequence += [SubCmd(actor='spsait', cmdStr='single arc exptime=2.0', getVisit=True)]
-        sequence += [SubCmd(actor='enu_sm1', cmdStr='slit status') for i in range(4)]
+        seq = Sequence()
 
-        self.actor.processSequence(cmd, sequence,
+        head = Sequence([SubCmd(actor='enu_sm1', cmdStr='rexm status')])
+        tail = [SubCmd(actor='enu_sm1', cmdStr='bsh status')]
+
+        seq.addSubCmd(actor='enu_sm1', cmdStr='slit status')
+        seq.addSubCmd(actor='spsait', cmdStr='single arc exptime=2.0')
+        seq.addSubCmd(actor='enu_sm1', cmdStr='slit status', duplicate=3)
+
+        self.actor.processSequence(cmd, seq,
                                    head=head,
                                    tail=tail,
                                    seqtype='Test',
