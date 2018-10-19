@@ -31,6 +31,21 @@ class align(QThread):
                           timeLim=60 + exptime)
         return seq
 
+    def sacTF(self, exptime, lowBound, upBound, nbPosition, duplicate):
+        step = (upBound - lowBound) / (nbPosition - 1)
+
+        seq = Sequence()
+
+        for i in range(nbPosition):
+            seq.addSubCmd(actor='sac',
+                          cmdStr='move detector=%.2f abs' % (lowBound + i * step))
+
+            seq.addSubCmd(actor='sac',
+                          cmdStr='ccd expose exptime=%.2f' % exptime,
+                          duplicate=duplicate,
+                          timeLim=60 + exptime)
+        return seq
+
     def slitalign(self, exptime, targetedFiber, lowBound, upBound, nbPosition, duplicate):
         seq = Sequence()
 

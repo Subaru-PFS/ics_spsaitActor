@@ -19,6 +19,7 @@ class AlignCmd(object):
         self.name = "align"
         self.vocab = [
             ('sac','align <exptime> <focus> <nbPosition> [<lowBound>] [<upBound>] [<duplicate>] [<name>] [<comments>]', self.sacAlign),
+            ('sac', 'throughfocus <exptime> <nbPosition> [<lowBound>] [<upBound>] [<duplicate>] [<name>] [<comments>]',self.sacTF),
             ('slit','throughfocus <exptime> <nbPosition> <lowBound> <upBound> [<fiber>] [<duplicate>] [<name>] [<comments>]', self.slitAlign),
             ('detector', 'throughfocus <exptime> <cam> <nbPosition> [<lowBound>] [<upBound>] [<startPosition>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<drpFolder>] [<name>] [<comments>]', self.detAlign),
         ]
@@ -83,7 +84,35 @@ class AlignCmd(object):
                                             duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='SacAlignment',
+                                   seqtype='sacAlignment',
+                                   name=name,
+                                   comments=comments)
+
+        cmd.finish()
+
+    @threaded
+    def sacTF(self, cmd):
+        self.actor.resetSequence()
+
+        cmdKeys = cmd.cmd.keywords
+
+        exptime = cmdKeys['exptime'].values[0]
+        nbPosition = cmdKeys['nbPosition'].values[0]
+        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else 0
+        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 12
+        duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
+
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+
+        sequence = self.controller.sacTF(exptime=exptime,
+                                            lowBound=lowBound,
+                                            upBound=upBound,
+                                            nbPosition=nbPosition,
+                                            duplicate=duplicate)
+
+        self.actor.processSequence(cmd, sequence,
+                                   seqtype='sacThroughFocus',
                                    name=name,
                                    comments=comments)
 
