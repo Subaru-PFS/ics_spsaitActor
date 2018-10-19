@@ -31,23 +31,25 @@ class TestCmd(object):
 
     @threaded
     def sequence(self, cmd):
+        self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
 
         seq = Sequence()
 
-        head = Sequence([SubCmd(actor='enu_sm1', cmdStr='rexm status')])
-        tail = [SubCmd(actor='enu_sm1', cmdStr='bsh status')]
+        #head = Sequence([SubCmd(actor='enu_sm1', cmdStr='rexm status')])
+        #tail = [SubCmd(actor='enu_sm1', cmdStr='bsh status')]
 
-        seq.addSubCmd(actor='enu_sm1', cmdStr='slit status')
-        seq.addSubCmd(actor='spsait', cmdStr='single arc exptime=2.0')
-        seq.addSubCmd(actor='enu_sm1', cmdStr='slit status', duplicate=3)
+        #seq.addSubCmd(actor='enu_sm1', cmdStr='slit status')
+        #seq.addSubCmd(actor='spsait', cmdStr='single arc exptime=2.0')
+        seq.addSubCmd(actor='enu_sm1', cmdStr='slit status', duplicate=4)
 
         self.actor.processSequence(cmd, seq,
-                                   head=head,
-                                   tail=tail,
+                                   head=None,
+                                   tail=None,
                                    seqtype='Test',
                                    name=name,
                                    comments=comments)
         cmd.finish()
+

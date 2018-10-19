@@ -5,7 +5,7 @@ import logging
 import time
 
 import actorcore.ICC
-from spsaitActor.sequencing import Experiment, CmdFail
+from spsaitActor.sequencing import Experiment, CmdFail, SubCmd
 from twisted.internet import reactor
 
 
@@ -78,9 +78,8 @@ class SpsaitActor(actorcore.ICC.ICC):
         experiment.addVisits(newVisits=newVisits)
         return ';'.join(newVisits)
 
-    def processSequence(self, cmd, sequence, seqtype, name='', comments='', head=None, tail=None):
-        head = [] if head is None else head
-        tail = [] if tail is None else tail
+    def processSequence(self, cmd, sequence, seqtype, name, comments, head, tail):
+
         experiment = Experiment(head=head, sequence=sequence, tail=tail, name=name, seqtype=seqtype, rawCmd=cmd.rawCmd,
                                 comments=comments)
         cmd.inform('newExperiment=%s' % experiment.info)
@@ -98,6 +97,14 @@ class SpsaitActor(actorcore.ICC.ICC):
                 self.processSubCmd(cmd=cmd, experiment=experiment, subCmd=subCmd, doRaise=False)
 
             experiment.store()
+
+    def subCmdList(self, cmdList):
+        subCmds = []
+        for cmd in cmdList:
+            actor, cmdStr = cmd.split(' ', 1)
+            subCmds.append(SubCmd(actor=actor, cmdStr=cmdStr))
+
+        return subCmds
 
     def getSeqno(self, cmd):
         cmdVar = self.cmdr.call(actor='seqno',
