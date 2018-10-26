@@ -22,7 +22,7 @@ class DitherCmd(object):
              'flat <exptime> <shift> <nbPosition> [@(microns|pixels)] [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.ditherFlat),
             ('dither',
-             'psf <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<head>] [<tail>] [<comments>][<drpFolder>]',
+             'psf <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<head>] [<tail>] [<comments>] [<drpFolder>]',
              self.ditherPsf)
 
         ]
@@ -66,8 +66,8 @@ class DitherCmd(object):
         fact = (1. / (29.4)) if "pixels" in cmdKeys else 0.001
         shift = cmdKeys['shift'].values[0] * fact
         nbPosition = cmdKeys['nbPosition'].values[0]
-
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
         force = 'force' if 'force' in cmdKeys else ''
         switchOff = True if 'switchOff' in cmdKeys else False
@@ -92,8 +92,8 @@ class DitherCmd(object):
                                 doRaise=doRaise,
                                 timeLim=5)
 
-        head = [SubCmd(actor='dcb', cmdStr="arc on=halogen %s %s" % (attenuator, force), timeLim=300)]
-        tail = [SubCmd(actor='dcb', cmdStr="arc off=halogen", timeLim=300)] if switchOff else None
+        head += [SubCmd(actor='dcb', cmdStr="arc on=halogen %s %s" % (attenuator, force), timeLim=300)]
+        tail = ([SubCmd(actor='dcb', cmdStr="arc off=halogen", timeLim=300)] if switchOff else []) + tail
 
         sequence = self.controller.ditherflat(exptime=exptime,
                                               cams=cams,

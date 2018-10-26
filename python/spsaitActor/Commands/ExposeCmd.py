@@ -20,10 +20,10 @@ class ExposeCmd(object):
         self.name = "expose"
         self.vocab = [
             ('expose',
-             'arc <exptime>  [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             'arc <exptime> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.doArc),
             ('expose',
-             'flat <exptime> [<duplicate>] [switchOff] [<attenuator>] [force] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             'flat <exptime> [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.doArc),
         ]
 
