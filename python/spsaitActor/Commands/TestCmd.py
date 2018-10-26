@@ -46,8 +46,6 @@ class TestCmd(object):
         seq.addSubCmd(actor='enu_sm1', cmdStr='slit status', duplicate=4)
 
         self.actor.processSequence(cmd, seq,
-                                   head=None,
-                                   tail=None,
                                    seqtype='Test',
                                    name=name,
                                    comments=comments)
