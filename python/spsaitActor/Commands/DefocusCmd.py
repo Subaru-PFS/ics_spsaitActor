@@ -19,7 +19,7 @@ class DefocusCmd(object):
         self.name = "defocus"
         self.vocab = [
             ('defocus',
-             '<exptime> <nbPosition> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             '<exptime> <nbPosition>  [<lowBound>] [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.defocus)
         ]
 
@@ -27,6 +27,8 @@ class DefocusCmd(object):
         self.keys = keys.KeysDictionary("spsait_defocus", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("nbPosition", types.Int(), help="Number of position"),
+                                        keys.Key("lowBound", types.Float(), help="lower bound for through focus"),
+                                        keys.Key("upBound", types.Float(), help="upper bound for through focus"),
                                         keys.Key("duplicate", types.Int(),
                                                  help="duplicate number of flat per position(1 is default)"),
                                         keys.Key("switchOn", types.String() * (1, None),
@@ -59,6 +61,8 @@ class DefocusCmd(object):
 
         exptime = cmdKeys['exptime'].values[0]
         nbPosition = cmdKeys['nbPosition'].values[0]
+        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else -5
+        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 5
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
@@ -97,6 +101,8 @@ class DefocusCmd(object):
 
         sequence = self.controller.defocus(exptime=exptime,
                                            nbPosition=nbPosition,
+                                           lowBound=lowBound,
+                                           upBound=upBound,
                                            cams=cams,
                                            duplicate=duplicate)
 

@@ -3,10 +3,12 @@ from collections import OrderedDict
 
 import numpy as np
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import Sequence, SubCmd
+from spsaitActor.sequencing import Sequence
 
 
 class defocus(QThread):
+    posName = ['X', 'Y', 'Z', 'U', 'V', 'W']
+
     def __init__(self, actor, name, loglevel=logging.DEBUG):
         """This sets up the connections to/from the hub, the logger, and the twisted reactor.
 
@@ -21,8 +23,8 @@ class defocus(QThread):
         pmean = np.array([0.03920849, 5.04702675, -1.24206109, 2.611892])
         return exptime * np.polyval(pmean, focus)
 
-    def defocus(self, exptime, nbPosition, cams, duplicate):
-        step = 9.0 / (nbPosition - 1)
+    def defocus(self, exptime, nbPosition, lowBound, upBound, cams, duplicate):
+        step = (upBound - lowBound) / (nbPosition - 1)
         cams = cams if cams else self.actor.cams
 
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
@@ -30,21 +32,25 @@ class defocus(QThread):
 
         seq = Sequence()
 
-        allHomed = [SubCmd(actor=enuActor, cmdStr='slit move home') for enuActor in enuActors]
-
         for i in range(nbPosition):
-            focus = -4.5 + i * step
+            focus = round(lowBound + i * step, 6)
             cexptime = self.getExptime(exptime, focus)
+            for enuActor in enuActors:
+                enuKeys = self.actor.models[enuActor].keyVarDict
+                posAbsolute = [focus] + list(enuKeys['slit'])[1:]
+                posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(defocus.posName, posAbsolute)])
+                seq.addSubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute)
 
-            moveAbs = [SubCmd(actor=enuActor,
-                              cmdStr='slit move absolute x=%.5f y=0.0 z=0.0 u=0.0 v=0.0 w=0.0' % focus) for enuActor in
-                       enuActors]
-            seq += moveAbs
             seq.addSubCmd(actor='spsait',
                           cmdStr='single arc exptime=%.2f cams=%s' % (cexptime, ','.join(cams)),
                           timeLim=120 + cexptime,
                           duplicate=duplicate)
-        seq += allHomed
+
+        for enuActor in enuActors:
+            enuKeys = self.actor.models[enuActor].keyVarDict
+            posAbsolute = [0] + list(enuKeys['slit'])[1:]
+            posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(defocus.posName, posAbsolute)])
+            seq.addSubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute)
 
         return seq
 
