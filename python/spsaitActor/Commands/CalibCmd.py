@@ -7,6 +7,7 @@ import opscore.protocols.types as types
 from enuActor.utils.wrap import threaded
 from spsaitActor.sequencing import SubCmd
 
+
 class CalibCmd(object):
     def __init__(self, actor):
         # This lets us access the rest of the actor.
@@ -18,26 +19,22 @@ class CalibCmd(object):
         #
         self.name = "calib"
         self.vocab = [
-            ('bias', '[<duplicate>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doBias),
-            ('dark', '<exptime> [<duplicate>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doDarks),
-            ('calib', '[<nbias>] [<ndarks>] [<exptime>] [<name>] [<comments>] [<drpFolder>] [<cam>] [<cams>]', self.doBasicCalib),
-            ('imstab', '<exptime> <nbPosition> <delay> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<drpFolder>] [<name>] [<comments>] [<cam>] [<cams>]', self.imstab)
+            ('bias', '[<duplicate>] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             self.doBias),
+            ('dark', '<exptime> [<duplicate>] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             self.doDarks),
+            ('calib',
+             '[<nbias>] [<ndarks>] [<exptime>] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             self.doBasicCalib),
+            ('imstab',
+             '<exptime> <nbPosition> <delay> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             self.imstab)
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_calib", (1, 1),
                                         keys.Key("duplicate", types.Int(),
                                                  help="duplicate number of exposure per tempo(1 is default)"),
-                                        keys.Key("cam", types.String(),
-                                                 help='single camera to take exposure from'),
-                                        keys.Key("cams", types.String() * (1,),
-                                                 help='list of camera to take exposure from'),
-                                        keys.Key("name", types.String(),
-                                                 help='experiment name'),
-                                        keys.Key("comments", types.String(),
-                                                 help='operator comments'),
-                                        keys.Key("drpFolder", types.String(),
-                                                 help='detrend exposures to this folder'),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
                                         keys.Key("ndarks", types.Int(), help="Number of darks"),
                                         keys.Key("nbias", types.Int(), help="Number of bias"),
@@ -48,6 +45,14 @@ class CalibCmd(object):
                                         keys.Key("switchOff", types.String() * (1, None),
                                                  help='which arc lamp to switch off.'),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
+                                        keys.Key("cam", types.String(), help='single camera to take exposure from'),
+                                        keys.Key("cams", types.String() * (1,),
+                                                 help='list of camera to take exposure from'),
+                                        keys.Key("name", types.String(), help='experiment name'),
+                                        keys.Key("comments", types.String(), help='operator comments'),
+                                        keys.Key("head", types.String() * (1,), help='cmdStr list to process before'),
+                                        keys.Key("tail", types.String() * (1,), help='cmdStr list to process after'),
+                                        keys.Key("drpFolder", types.String(), help='detrend exposures to this folder'),
                                         )
 
     @property
@@ -59,20 +64,21 @@ class CalibCmd(object):
 
     @threaded
     def doBias(self, cmd):
-
+        cams = False
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
-        cams = False
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
         drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'bias'
         doRaise = True if 'drpFolder' in cmdKeys else False
-
-        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         if drpFolder:
             self.actor.safeCall(actor='drp',
@@ -86,27 +92,29 @@ class CalibCmd(object):
         self.actor.processSequence(cmd, sequence,
                                    seqtype='biases',
                                    name=name,
-                                   comments=comments)
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
 
         cmd.finish()
 
     @threaded
     def doDarks(self, cmd):
-
+        cams = False
         self.actor.resetSequence()
-
         cmdKeys = cmd.cmd.keywords
 
-        cams = False
+        exptime = cmdKeys['exptime'].values[0]
+
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
         drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'dark'
         doRaise = True if 'drpFolder' in cmdKeys else False
-
-        exptime = cmdKeys['exptime'].values[0]
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
@@ -125,28 +133,31 @@ class CalibCmd(object):
         self.actor.processSequence(cmd, sequence,
                                    seqtype='darks',
                                    name=name,
-                                   comments=comments)
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
 
         cmd.finish()
 
     @threaded
     def doBasicCalib(self, cmd):
+        cams = False
         self.actor.resetSequence()
-
         cmdKeys = cmd.cmd.keywords
 
-        cams = False
+        ndarks = cmdKeys['ndarks'].values[0] if 'ndarks' in cmdKeys else 5
+        exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
+        nbias = cmdKeys['nbias'].values[0] if 'nbias' in cmdKeys else 15
+
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
         drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'calib'
         doRaise = True if 'drpFolder' in cmdKeys else False
-
-        ndarks = cmdKeys['ndarks'].values[0] if 'ndarks' in cmdKeys else 5
-        exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
-        nbias = cmdKeys['nbias'].values[0] if 'nbias' in cmdKeys else 15
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
@@ -164,38 +175,37 @@ class CalibCmd(object):
         self.actor.processSequence(cmd, sequence,
                                    seqtype='calib',
                                    name=name,
-                                   comments=comments)
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
 
         cmd.finish()
 
     @threaded
     def imstab(self, cmd):
-        head = None
-        tail = None
+        cams = False
         self.actor.resetSequence()
-
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
         nbPosition = cmdKeys['nbPosition'].values[0]
         delay = cmdKeys['delay'].values[0]
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
         switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
+        attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
+        force = 'force' if 'force' in cmdKeys else ''
 
-        cams = False
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
         drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'imstab'
         doRaise = True if 'drpFolder' in cmdKeys else False
-
-        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
-
-        attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
-        force = 'force' if 'force' in cmdKeys else ''
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
@@ -208,14 +218,13 @@ class CalibCmd(object):
                                 timeLim=5)
 
         if switchOn:
-            head = [SubCmd(actor='dcb',
-                          cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                          timeLim=300)]
+            head += [SubCmd(actor='dcb',
+                            cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
+                            timeLim=300)]
 
         if switchOff:
-            tail = [SubCmd(actor='dcb',
-                          cmdStr="arc off=%s" % ','.join(switchOff),
-                          timeLim=300)]
+            tail.insert(0, SubCmd(actor='dcb',
+                                  cmdStr="arc off=%s" % ','.join(switchOff)))
 
         sequence = self.controller.imstab(exptime=exptime,
                                           nbPosition=nbPosition,

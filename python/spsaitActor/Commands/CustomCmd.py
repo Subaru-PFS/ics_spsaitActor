@@ -4,10 +4,9 @@
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from enuActor.utils.wrap import threaded
-from spsaitActor.sequencing import SubCmd, Sequence
 
 
-class TestCmd(object):
+class CustomCmd(object):
     def __init__(self, actor):
         # This lets us access the rest of the actor.
         self.actor = actor
@@ -19,35 +18,27 @@ class TestCmd(object):
         #
         self.name = "test"
         self.vocab = [
-            ('test', '@(sequence) [<name>] [<comments>]', self.sequence),
+            ('custom', '<sequence> [<name>] [<comments>]', self.customSequence),
 
         ]
 
         # Define typed command arguments for the above commands.
-        self.keys = keys.KeysDictionary("spsait_test", (1, 1),
+        self.keys = keys.KeysDictionary("spsait_custom", (1, 1),
                                         keys.Key("name", types.String(), help='experiment name'),
                                         keys.Key("comments", types.String(), help='operator comments'),
+                                        keys.Key("sequence", types.String() * (1,), help='cmdStr list to process'),
                                         )
 
     @threaded
-    def sequence(self, cmd):
+    def customSequence(self, cmd):
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        sequence = self.actor.subCmdList(cmdKeys['sequence'].values)
 
-        seq = Sequence()
-
-        #head = Sequence([SubCmd(actor='enu_sm1', cmdStr='rexm status')])
-        #tail = [SubCmd(actor='enu_sm1', cmdStr='bsh status')]
-
-        #seq.addSubCmd(actor='enu_sm1', cmdStr='slit status')
-        #seq.addSubCmd(actor='spsait', cmdStr='single arc exptime=2.0')
-        seq.addSubCmd(actor='enu_sm1', cmdStr='slit status', duplicate=4)
-
-        self.actor.processSequence(cmd, seq,
-                                   seqtype='Test',
+        self.actor.processSequence(cmd, sequence,
+                                   seqtype='Custom',
                                    name=name,
                                    comments=comments)
         cmd.finish()
-
