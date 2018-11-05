@@ -19,10 +19,10 @@ class DitherCmd(object):
         self.name = "dither"
         self.vocab = [
             ('dither',
-             'flat <exptime> <shift> <nbPosition> [@(microns|pixels)] [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             'flat <exptime> <pixels> <nbPosition> [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.ditherFlat),
             ('dither',
-             'psf <exptime> <shift> [@(microns|pixels)] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<head>] [<tail>] [<comments>] [<drpFolder>]',
+             'psf <exptime> <pixels> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<head>] [<tail>] [<comments>] [<drpFolder>]',
              self.ditherPsf)
 
         ]
@@ -30,7 +30,7 @@ class DitherCmd(object):
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_dither", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
-                                        keys.Key("shift", types.Float(), help="shift in microns/pixels"),
+                                        keys.Key("pixels", types.Float(), help="shift in pixels"),
                                         keys.Key("nbPosition", types.Int(), help="Number of position"),
                                         keys.Key("duplicate", types.Int(),
                                                  help="duplicate number of flat per position(1 is default)"),
@@ -58,13 +58,12 @@ class DitherCmd(object):
 
     @threaded
     def ditherFlat(self, cmd):
-        cams = False
+        cams = self.actor.cams
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        fact = (1. / (29.4)) if "pixels" in cmdKeys else 0.001
-        shift = cmdKeys['shift'].values[0] * fact
+        shift = cmdKeys['pixels'].values[0]
         nbPosition = cmdKeys['nbPosition'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
@@ -112,13 +111,12 @@ class DitherCmd(object):
 
     @threaded
     def ditherPsf(self, cmd):
-        cams = False
+        cams = self.actor.cams
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        fact = (1. / (29.4)) if "pixels" in cmdKeys else 0.001
-        shift = cmdKeys['shift'].values[0] * fact
+        shift = cmdKeys['pixels'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
