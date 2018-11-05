@@ -25,7 +25,6 @@ class defocus(QThread):
 
     def defocus(self, exptime, nbPosition, lowBound, upBound, cams, duplicate):
         step = (upBound - lowBound) / (nbPosition - 1)
-        cams = cams if cams else self.actor.cams
 
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
         enuActors = ['enu_sm%i' % specId for specId in specIds]
