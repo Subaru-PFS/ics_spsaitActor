@@ -1,6 +1,8 @@
+from datetime import datetime as dt
+
 from opscore.utility.qstr import qstr
 from spsaitActor.logbook import Logbook
-from datetime import datetime as dt
+
 
 class CmdFail(ValueError):
     def __init__(self, *args):
@@ -100,3 +102,18 @@ class Sequence(list):
     def addSubCmd(self, actor, cmdStr, duplicate=1, timeLim=120, tempo=5.0):
         for i in range(duplicate):
             self.append(SubCmd(actor=actor, cmdStr=cmdStr, timeLim=timeLim, tempo=tempo))
+
+
+class FocusFlats(Sequence):
+    exptime = 1.0
+    attenuator = 20
+
+    def __init__(self, cams):
+        Sequence.__init__(self)
+        self.addSubCmd(actor='dcb', cmdStr='arc on=halogen attenuator=%d' % FocusFlats.attenuator, timeLim=300)
+
+        self.addSubCmd(actor='spsait',
+                       cmdStr='single flat exptime=%.2f cams=%s' % (FocusFlats.exptime, ','.join(cams)),
+                       timeLim=120)
+
+        self.addSubCmd(actor='dcb', cmdStr='arc off=halogen')

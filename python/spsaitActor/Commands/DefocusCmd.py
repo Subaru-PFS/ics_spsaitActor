@@ -4,7 +4,7 @@
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
 from enuActor.utils.wrap import threaded
-from spsaitActor.sequencing import SubCmd
+from spsaitActor.sequencing import SubCmd, FocusFlats
 
 
 class DefocusCmd(object):
@@ -19,7 +19,7 @@ class DefocusCmd(object):
         self.name = "defocus"
         self.vocab = [
             ('defocus',
-             '<exptime> <nbPosition>  [<lowBound>] [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             '<exptime> <nbPosition> [<lowBound>] [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.defocus)
         ]
 
@@ -55,7 +55,7 @@ class DefocusCmd(object):
 
     @threaded
     def defocus(self, cmd):
-        cams = False
+        cams = self.actor.cams
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
@@ -89,6 +89,9 @@ class DefocusCmd(object):
                                 forUserCmd=cmd,
                                 doRaise=doRaise,
                                 timeLim=5)
+
+        head += FocusFlats(cams=cams)
+        tail = FocusFlats(cams=cams) + tail
 
         if switchOn:
             head += [SubCmd(actor='dcb',
