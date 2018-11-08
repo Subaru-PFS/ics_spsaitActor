@@ -6,7 +6,7 @@ def cleanStr(txt):
 
 
 class Logbook:
-    engine = '///data/ait/ait-operation.db'
+    engine = '///home/arnaud/data/ait/ait-alignment.db'
 
     @staticmethod
     def newExperiment(experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, startdate, cmdError, anomalies=''):

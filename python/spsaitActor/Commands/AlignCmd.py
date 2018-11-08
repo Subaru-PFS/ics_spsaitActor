@@ -19,12 +19,6 @@ class AlignCmd(object):
         #
         self.name = "align"
         self.vocab = [
-            ('sac',
-             'align <exptime> <focus> <nbPosition> [<lowBound>] [<upBound>] [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]',
-             self.sacAlign),
-            ('sac',
-             'throughfocus <exptime> <nbPosition> [<lowBound>] [<upBound>] [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]',
-             self.sacTF),
             ('slit',
              'throughfocus <exptime> <nbPosition> <lowBound> <upBound> [<fiber>] [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]',
              self.slitAlign),
@@ -67,69 +61,6 @@ class AlignCmd(object):
         except KeyError:
             raise RuntimeError('%s controller is not connected.' % self.name)
 
-    @threaded
-    def sacAlign(self, cmd):
-        self.actor.resetSequence()
-        cmdKeys = cmd.cmd.keywords
-
-        exptime = cmdKeys['exptime'].values[0]
-        focus = cmdKeys['focus'].values[0]
-        nbPosition = cmdKeys['nbPosition'].values[0]
-        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else -300
-        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 500
-        duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
-
-        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
-        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
-
-        sequence = self.controller.sacalign(exptime=exptime,
-                                            focus=focus,
-                                            lowBound=lowBound,
-                                            upBound=upBound,
-                                            nbPosition=nbPosition,
-                                            duplicate=duplicate)
-
-        self.actor.processSequence(cmd, sequence,
-                                   seqtype='sacAlignment',
-                                   name=name,
-                                   comments=comments,
-                                   head=head,
-                                   tail=tail)
-
-        cmd.finish()
-
-    @threaded
-    def sacTF(self, cmd):
-        self.actor.resetSequence()
-        cmdKeys = cmd.cmd.keywords
-
-        exptime = cmdKeys['exptime'].values[0]
-        nbPosition = cmdKeys['nbPosition'].values[0]
-        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else 0
-        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 12
-        duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
-
-        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
-        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
-
-        sequence = self.controller.sacTF(exptime=exptime,
-                                         lowBound=lowBound,
-                                         upBound=upBound,
-                                         nbPosition=nbPosition,
-                                         duplicate=duplicate)
-
-        self.actor.processSequence(cmd, sequence,
-                                   seqtype='sacThroughFocus',
-                                   name=name,
-                                   comments=comments,
-                                   head=head,
-                                   tail=tail)
-
-        cmd.finish()
 
     @threaded
     def slitAlign(self, cmd):
