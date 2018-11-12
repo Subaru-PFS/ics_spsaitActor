@@ -38,7 +38,7 @@ class CustomCmd(object):
         sequence = self.actor.subCmdList(cmdKeys['sequence'].values)
 
         self.actor.processSequence(cmd, sequence,
-                                   seqtype='Custom',
+                                   seqtype='custom',
                                    name=name,
                                    comments=comments)
         cmd.finish()
