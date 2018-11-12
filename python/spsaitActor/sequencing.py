@@ -1,5 +1,6 @@
 from datetime import datetime as dt
 
+import spsaitActor.storage as storage
 from opscore.utility.qstr import qstr
 from spsaitActor.logbook import Logbook
 
@@ -38,20 +39,23 @@ class SubCmd(object):
 
 
 class Experiment(object):
-    def __init__(self, head, sequence, tail, name, seqtype, rawCmd, comments):
+    def __init__(self, rawCmd, sequence, seqtype, name, comments, head, tail):
         object.__init__(self)
-        self.id = Logbook.lastExperimentId() + 1
-        self.startdate = dt.utcnow().replace(microsecond=0).isoformat()
-        self.head = head
-        self.sequence = sequence
-        self.tail = tail
-        self.name = name
-        self.seqtype = seqtype
         self.rawCmd = rawCmd
         self.cmdStr = rawCmd.replace('name="%s"' % name, '').replace('comments="%s"' % comments, '')
+        self.sequence = sequence
+        self.seqtype = seqtype
+        self.name = name
         self.comments = comments
+        self.head = head
+        self.tail = tail
+
         self.cmdError = ''
         self.visits = []
+        self.startdate = dt.utcnow().replace(microsecond=0).isoformat()
+
+        self.dbname = self.getStorage()
+        self.id = Logbook.lastExperimentId(dbname=self.dbname) + 1
 
         self.registerCmds()
 
@@ -61,11 +65,12 @@ class Experiment(object):
 
     @property
     def info(self):
-        return '%i,%s,"%s","%s","%s"' % (self.id,
-                                         self.seqtype,
-                                         self.name,
-                                         self.comments,
-                                         ';'.join([sub.fullCmd for sub in self.subCmds]))
+        return '%s,%i,%s,"%s","%s","%s"' % (self.dbname,
+                                            self.id,
+                                            self.seqtype,
+                                            self.name,
+                                            self.comments,
+                                            ';'.join([sub.fullCmd for sub in self.subCmds]))
 
     def registerCmds(self):
         for id, subCmd in enumerate(self.subCmds):
@@ -83,7 +88,8 @@ class Experiment(object):
 
     def store(self):
         if self.visits:
-            Logbook.newExperiment(experimentId=self.id,
+            Logbook.newExperiment(dbname=self.dbname,
+                                  experimentId=self.id,
                                   visitStart=min(self.visits),
                                   visitEnd=max(self.visits),
                                   seqtype=self.seqtype,
@@ -93,6 +99,14 @@ class Experiment(object):
                                   startdate=self.startdate,
                                   cmdError=self.cmdError
                                   )
+
+    def getStorage(self):
+        try:
+            location = storage.locate(seqtype=self.seqtype)
+        except KeyError:
+            location = storage.guess(subCmds=self.subCmds)
+
+        return location
 
 
 class Sequence(list):

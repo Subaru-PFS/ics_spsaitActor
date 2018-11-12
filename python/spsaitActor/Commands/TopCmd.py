@@ -20,11 +20,12 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('abort', '', self.abort),
-            ('logbook', '<experimentId> <anomalies>', self.setNewAnomalies)
+            ('logbook', '<dbname> <experimentId> <anomalies>', self.setNewAnomalies)
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_spsait", (1, 1),
+                                        keys.Key("dbname", types.String(), help='dbname'),
                                         keys.Key("experimentId", types.Int(), help="experimentId to update"),
                                         keys.Key("anomalies", types.String(), help='anomalies message'),
                                         )
@@ -48,10 +49,10 @@ class TopCmd(object):
 
     def setNewAnomalies(self, cmd):
         cmdKeys = cmd.cmd.keywords
-
+        dbname = cmdKeys['dbname'].values[0]
         experimentId = cmdKeys['experimentId'].values[0]
         anomalies = cmdKeys['anomalies'].values[0]
 
-        Logbook.newAnomalies(experimentId=experimentId, anomalies=anomalies)
+        Logbook.newAnomalies(dbname=dbname, experimentId=experimentId, anomalies=anomalies)
 
         cmd.finish()

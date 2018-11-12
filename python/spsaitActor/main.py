@@ -82,8 +82,8 @@ class SpsaitActor(actorcore.ICC.ICC):
         head = [] if head is None else head
         tail = [] if tail is None else tail
 
-        experiment = Experiment(head=head, sequence=sequence, tail=tail, name=name, seqtype=seqtype, rawCmd=cmd.rawCmd,
-                                comments=comments)
+        experiment = Experiment(rawCmd=cmd.rawCmd, sequence=sequence, seqtype=seqtype, name=name, comments=comments,
+                                head=head, tail=tail)
         cmd.inform('newExperiment=%s' % experiment.info)
 
         try:
