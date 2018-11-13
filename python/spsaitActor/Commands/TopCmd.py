@@ -20,13 +20,15 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('abort', '', self.abort),
-            ('logbook', '<dbname> <experimentId> <anomalies>', self.setNewAnomalies)
+            ('logbook', '<dbname> <experimentId> [<name>] [<comments>] [<anomalies>]', self.setColumnValue)
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_spsait", (1, 1),
                                         keys.Key("dbname", types.String(), help='dbname'),
                                         keys.Key("experimentId", types.Int(), help="experimentId to update"),
+                                        keys.Key("name", types.String(), help='experiment name'),
+                                        keys.Key("comments", types.String(), help='experiment comments'),
                                         keys.Key("anomalies", types.String(), help='anomalies message'),
                                         )
 
@@ -47,12 +49,21 @@ class TopCmd(object):
 
         cmd.finish("text='Aborting'")
 
-    def setNewAnomalies(self, cmd):
+    def setColumnValue(self, cmd):
         cmdKeys = cmd.cmd.keywords
         dbname = cmdKeys['dbname'].values[0]
         experimentId = cmdKeys['experimentId'].values[0]
-        anomalies = cmdKeys['anomalies'].values[0]
 
-        Logbook.newAnomalies(dbname=dbname, experimentId=experimentId, anomalies=anomalies)
+        if 'name' in cmdKeys:
+            Logbook.setColumnValue(dbname=dbname, experimentId=experimentId, column='name',
+                                   value=cmdKeys['name'].values[0])
+
+        if 'comments' in cmdKeys:
+            Logbook.setColumnValue(dbname=dbname, experimentId=experimentId, column='comments',
+                                   value=cmdKeys['comments'].values[0])
+
+        if 'anomalies' in cmdKeys:
+            Logbook.setColumnValue(dbname=dbname, experimentId=experimentId, column='anomalies',
+                                   value=cmdKeys['anomalies'].values[0])
 
         cmd.finish()

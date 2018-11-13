@@ -73,8 +73,8 @@ class Logbook:
         return experimentId
 
     @staticmethod
-    def newAnomalies(dbname, experimentId, anomalies):
-        anomalies = cleanStr(anomalies)
-        sqlRequest = """UPDATE Experiment SET anomalies = "%s" WHERE experimentId=%i""" % (anomalies,
-                                                                                           experimentId)
+    def setColumnValue(dbname, experimentId, column, value):
+        sqlRequest = """UPDATE Experiment SET %s = "%s" WHERE experimentId=%i""" % (column,
+                                                                                    cleanStr(value),
+                                                                                    experimentId)
         Logbook.newRow(dbname=dbname, sqlRequest=sqlRequest)
