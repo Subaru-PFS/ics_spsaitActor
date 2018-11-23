@@ -2,9 +2,10 @@ import logging
 
 from actorcore.QThread import QThread
 from spsaitActor.sequencing import Sequence
-
+from collections import OrderedDict
 
 class align(QThread):
+    posName = ['X', 'Y', 'Z', 'U', 'V', 'W']
     def __init__(self, actor, name, loglevel=logging.DEBUG):
         """This sets up the connections to/from the hub, the logger, and the twisted reactor.
 
@@ -21,7 +22,7 @@ class align(QThread):
         if targetedFiber:
             seq.addSubCmd(actor='breva', cmdStr='goto fiber=%s' % targetedFiber)
 
-        posName = ['X', 'Y', 'Z', 'U', 'V', 'W']
+
         enuActor = 'enu_sm%i' % self.actor.specToAlign
         enuKeys = self.actor.models[enuActor].keyVarDict
 
@@ -29,7 +30,7 @@ class align(QThread):
 
         for i in range(nbPosition):
             slitPos = [round(lowBound + i * step, 6)] + list(enuKeys['slit'])[1:]
-            posAbsolute = ' '.join(['%s=%s' % (name, value) for name, value in zip(posName, slitPos)])
+            posAbsolute = ' '.join(['%s=%s' % (name, value) for name, value in zip(align.posName, slitPos)])
 
             seq.addSubCmd(actor=enuActor,
                           cmdStr='slit move absolute %s' % posAbsolute)
@@ -54,6 +55,29 @@ class align(QThread):
                           cmdStr='single arc exptime=%.2f cam=%s' % (exptime, cam),
                           duplicate=duplicate,
                           timeLim=120 + exptime)
+        return seq
+
+    def slitTF(self, exptime, nbPosition, lowBound, upBound, cams, duplicate):
+        step = (upBound - lowBound) / (nbPosition - 1)
+
+        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        enuActors = ['enu_sm%i' % specId for specId in specIds]
+
+        seq = Sequence()
+
+        for i in range(nbPosition):
+            focus = round(lowBound + i * step, 6)
+            for enuActor in enuActors:
+                enuKeys = self.actor.models[enuActor].keyVarDict
+                posAbsolute = [focus] + list(enuKeys['slit'])[1:]
+                posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(align.posName, posAbsolute)])
+                seq.addSubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute)
+
+            seq.addSubCmd(actor='spsait',
+                          cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                          timeLim=120 + exptime,
+                          duplicate=duplicate)
+
         return seq
 
     def start(self, cmd=None):
