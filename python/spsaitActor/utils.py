@@ -1,3 +1,24 @@
+from functools import partial
+
+
+def putMsg(func):
+    def wrapper(self, cmd, *args, **kwargs):
+        self.actor.controllers[self.name].putMsg(partial(func, self, cmd, *args, **kwargs))
+
+    return wrapper
+
+
+def threaded(func):
+    @putMsg
+    def wrapper(self, cmd, *args, **kwargs):
+        try:
+            return func(self, cmd, *args, **kwargs)
+        except Exception as e:
+            cmd.fail('text=%s' % self.actor.strTraceback(e))
+
+    return wrapper
+
+
 # class Threshold(QThread):
 #     def __init__(self, actor, xcuData, name, ind, threshold, vFail, tlim, callback, kwargs, testfunc):
 #         QThread.__init__(self, actor, name, timeout=2)

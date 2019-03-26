@@ -3,7 +3,7 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from enuActor.utils.wrap import threaded
+from spsaitActor.utils import threaded
 from spsaitActor.sequencing import SubCmd
 
 
