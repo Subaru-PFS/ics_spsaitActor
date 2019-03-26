@@ -20,10 +20,10 @@ class ExposeCmd(object):
         self.name = "expose"
         self.vocab = [
             ('expose',
-             'arc <exptime> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+             'arc <exptime> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.doArc),
             ('expose',
-             'flat <exptime> [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+             'flat <exptime> [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.doArc),
         ]
 
@@ -37,9 +37,7 @@ class ExposeCmd(object):
                                         keys.Key("switchOff", types.String() * (1, None),
                                                  help='which arc lamp to switch off.'),
                                         keys.Key("attenuator", types.Int(), help='Attenuator value.'),
-                                        keys.Key("cam", types.String(),
-                                                 help='single camera to take exposure from'),
-                                        keys.Key("cams", types.String() * (1,),
+                                        keys.Key("cam", types.String() * (1,),
                                                  help='list of camera to take exposure from'),
                                         keys.Key("name", types.String(), help='experiment name'),
                                         keys.Key("comments", types.String(), help='operator comments'),
@@ -56,7 +54,6 @@ class ExposeCmd(object):
 
     @threaded
     def doArc(self, cmd):
-        cams = False
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
@@ -75,8 +72,7 @@ class ExposeCmd(object):
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
         force = 'force' if 'force' in cmdKeys else ''
 
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''

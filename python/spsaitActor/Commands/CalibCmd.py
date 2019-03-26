@@ -19,15 +19,15 @@ class CalibCmd(object):
         #
         self.name = "calib"
         self.vocab = [
-            ('bias', '[<duplicate>] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+            ('bias', '[<duplicate>] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.doBias),
-            ('dark', '<exptime> [<duplicate>] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+            ('dark', '<exptime> [<duplicate>] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.doDarks),
             ('calib',
-             '[<nbias>] [<ndarks>] [<exptime>] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+             '[<nbias>] [<ndarks>] [<exptime>] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.doBasicCalib),
             ('imstab',
-             '<exptime> <nbPosition> <delay> [<duplicate>] [keepOn] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+             '<exptime> <nbPosition> <delay> [<duplicate>] [keepOn] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.imstab)
         ]
 
@@ -45,8 +45,7 @@ class CalibCmd(object):
                                         keys.Key("switchOff", types.String() * (1, None),
                                                  help='which arc lamp to switch off.'),
                                         keys.Key("attenuator", types.Int(), help="optional attenuator value"),
-                                        keys.Key("cam", types.String(), help='single camera to take exposure from'),
-                                        keys.Key("cams", types.String() * (1,),
+                                        keys.Key("cam", types.String() * (1,),
                                                  help='list of camera to take exposure from'),
                                         keys.Key("name", types.String(), help='experiment name'),
                                         keys.Key("comments", types.String(), help='operator comments'),
@@ -63,14 +62,11 @@ class CalibCmd(object):
 
     @threaded
     def doBias(self, cmd):
-        cams = False
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
-
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -90,14 +86,11 @@ class CalibCmd(object):
 
     @threaded
     def doDarks(self, cmd):
-        cams = False
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -122,16 +115,13 @@ class CalibCmd(object):
 
     @threaded
     def doBasicCalib(self, cmd):
-        cams = False
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
         ndarks = cmdKeys['ndarks'].values[0] if 'ndarks' in cmdKeys else 5
         exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
         nbias = cmdKeys['nbias'].values[0] if 'nbias' in cmdKeys else 15
-
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -155,7 +145,6 @@ class CalibCmd(object):
 
     @threaded
     def imstab(self, cmd):
-        cams = False
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
@@ -163,15 +152,13 @@ class CalibCmd(object):
         nbPosition = cmdKeys['nbPosition'].values[0]
         delay = cmdKeys['delay'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
         keepOn = True if 'keepOn' in cmdKeys else False
 
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
         switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
         force = 'force' if 'force' in cmdKeys else ''
-
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''

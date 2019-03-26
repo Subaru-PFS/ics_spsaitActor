@@ -26,7 +26,7 @@ class AlignCmd(object):
              'throughfocus <exptime> <cam> <nbPosition> [<lowBound>] [<upBound>] [<startPosition>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<name>] [<comments>] [<head>] [<tail>]',
              self.detAlign),
             ('slit',
-            'throughfocus <exptime> <nbPosition> <lowBound> [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+            'throughfocus <exptime> <nbPosition> <lowBound> [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.slitTF),
         ]
 
@@ -48,9 +48,7 @@ class AlignCmd(object):
                                         keys.Key("switchOff", types.String() * (1, None),
                                                  help='which arc lamp to switch off.'),
                                         keys.Key("attenuator", types.Int(), help='Attenuator value.'),
-                                        keys.Key("cam", types.String(),
-                                                 help='single camera to take exposure from'),
-                                        keys.Key("cams", types.String() * (1,),
+                                        keys.Key("cam", types.String() * (1,),
                                                  help='list of camera to take exposure from'),
                                         keys.Key("name", types.String(), help='experiment name'),
                                         keys.Key("comments", types.String(), help='operator comments'),
@@ -117,7 +115,6 @@ class AlignCmd(object):
         force = 'force' if 'force' in cmdKeys else ''
 
         cam = cmdKeys['cam'].values[0]
-
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
         head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
@@ -153,7 +150,6 @@ class AlignCmd(object):
 
     @threaded
     def slitTF(self, cmd):
-        cams = self.actor.cams
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
@@ -168,8 +164,7 @@ class AlignCmd(object):
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
         switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
 
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''

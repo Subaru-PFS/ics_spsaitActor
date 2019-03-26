@@ -19,10 +19,10 @@ class DitherCmd(object):
         self.name = "dither"
         self.vocab = [
             ('dither',
-             'flat <exptime> <pixels> <nbPosition> [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
+             'flat <exptime> <pixels> <nbPosition> [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.ditherFlat),
             ('dither',
-             'psf <exptime> <pixels> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<head>] [<tail>] [<comments>]',
+             'psf <exptime> <pixels> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<head>] [<tail>] [<comments>]',
              self.ditherPsf)
 
         ]
@@ -39,8 +39,7 @@ class DitherCmd(object):
                                         keys.Key("switchOff", types.String() * (1, None),
                                                  help='which arc lamp to switch off.'),
                                         keys.Key("attenuator", types.Int(), help='Attenuator value.'),
-                                        keys.Key("cam", types.String(), help='single camera to take exposure from'),
-                                        keys.Key("cams", types.String() * (1,),
+                                        keys.Key("cam", types.String() * (1,),
                                                  help='camera list to take exposure from'),
                                         keys.Key("name", types.String(), help='experiment name'),
                                         keys.Key("comments", types.String(), help='operator comments'),
@@ -57,7 +56,6 @@ class DitherCmd(object):
 
     @threaded
     def ditherFlat(self, cmd):
-        cams = self.actor.cams
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
@@ -70,8 +68,7 @@ class DitherCmd(object):
         force = 'force' if 'force' in cmdKeys else ''
         switchOff = True if 'switchOff' in cmdKeys else False
 
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -101,7 +98,6 @@ class DitherCmd(object):
 
     @threaded
     def ditherPsf(self, cmd):
-        cams = self.actor.cams
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
@@ -119,8 +115,7 @@ class DitherCmd(object):
         head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
         tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
-        cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
-        cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")

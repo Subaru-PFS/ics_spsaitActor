@@ -22,7 +22,6 @@ class align(QThread):
         if targetedFiber:
             seq.addSubCmd(actor='breva', cmdStr='goto fiber=%s' % targetedFiber)
 
-
         enuActor = 'enu_sm%i' % self.actor.specToAlign
         enuKeys = self.actor.models[enuActor].keyVarDict
 
