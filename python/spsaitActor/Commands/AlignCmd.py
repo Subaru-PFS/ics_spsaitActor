@@ -23,7 +23,7 @@ class AlignCmd(object):
              'align <exptime> <nbPosition> <lowBound> <upBound> [<fiber>] [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]',
              self.slitAlign),
             ('detector',
-             'throughfocus <exptime> <cam> <nbPosition> [<lowBound>] [<upBound>] [<startPosition>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             'throughfocus <exptime> <cam> <nbPosition> [<lowBound>] [<upBound>] [<startPosition>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<name>] [<comments>] [<head>] [<tail>]',
              self.detAlign),
             ('slit',
             'throughfocus <exptime> <nbPosition> <lowBound> [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>]',
@@ -56,7 +56,6 @@ class AlignCmd(object):
                                         keys.Key("comments", types.String(), help='operator comments'),
                                         keys.Key("head", types.String() * (1,), help='cmdStr list to process before'),
                                         keys.Key("tail", types.String() * (1,), help='cmdStr list to process after'),
-                                        keys.Key("drpFolder", types.String(), help='detrend exposures to this folder'),
                                         )
 
     @property
@@ -123,18 +122,9 @@ class AlignCmd(object):
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
         head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
         tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
-        drpFolder = cmdKeys['drpFolder'].values[0] if 'drpFolder' in cmdKeys else 'detalign'
-        doRaise = True if 'drpFolder' in cmdKeys else False
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
-
-        if drpFolder:
-            self.actor.safeCall(actor='drp',
-                                cmdStr='set drpFolder=%s' % drpFolder,
-                                forUserCmd=cmd,
-                                doRaise=doRaise,
-                                timeLim=5)
 
         if switchOn:
             head += [SubCmd(actor='dcb',
