@@ -32,22 +32,26 @@ class calib(QThread):
                       timeLim=120 + exptime)
         return seq
 
-    def imstab(self, exptime, nbPosition, delay, duplicate, cams):
+    def imstab(self, exptime, nbPosition, delay, duplicate, cams, keepOn, switchOn, attenuator, force):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         seq = Sequence()
 
         for i in range(nbPosition):
             tempo = 0 if i == (nbPosition - 1) else delay
-            seq.addSubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
-                          timeLim=120 + exptime,
-                          duplicate=duplicate - 1)
+            cmdOn = 'arc on=%s %s %s' % (','.join(switchOn), attenuator, force) if switchOn else 'status'
+            seq.addSubCmd(actor='dcb',
+                          cmdStr=cmdOn,
+                          timeLim=300)
 
             seq.addSubCmd(actor='spsait',
                           cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
                           timeLim=120 + exptime,
+                          duplicate=duplicate)
+
+            cmdOff = 'arc off=%s' % ','.join(switchOn) if not keepOn else 'status'
+            seq.addSubCmd(actor='dcb',
+                          cmdStr=cmdOff,
                           tempo=tempo)
-
         return seq
 
     def start(self, cmd=None):

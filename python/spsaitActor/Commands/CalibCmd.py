@@ -27,7 +27,7 @@ class CalibCmd(object):
              '[<nbias>] [<ndarks>] [<exptime>] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.doBasicCalib),
             ('imstab',
-             '<exptime> <nbPosition> <delay> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
+             '<exptime> <nbPosition> <delay> [<duplicate>] [keepOn] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<cams>] [<name>] [<comments>] [<head>] [<tail>] [<drpFolder>]',
              self.imstab)
         ]
 
@@ -191,6 +191,7 @@ class CalibCmd(object):
         nbPosition = cmdKeys['nbPosition'].values[0]
         delay = cmdKeys['delay'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+        keepOn = True if 'keepOn' in cmdKeys else False
 
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
         switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
@@ -210,17 +211,14 @@ class CalibCmd(object):
         if exptime <= 0:
             raise Exception("exptime must be > 0")
 
+        keepOn = True if not switchOn else keepOn
+
         if drpFolder:
             self.actor.safeCall(actor='drp',
                                 cmdStr='set drpFolder=%s' % drpFolder,
                                 forUserCmd=cmd,
                                 doRaise=doRaise,
                                 timeLim=5)
-
-        if switchOn:
-            head += [SubCmd(actor='dcb',
-                            cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
-                            timeLim=300)]
 
         if switchOff:
             tail.insert(0, SubCmd(actor='dcb',
@@ -230,7 +228,11 @@ class CalibCmd(object):
                                           nbPosition=nbPosition,
                                           delay=delay,
                                           duplicate=duplicate,
-                                          cams=cams)
+                                          cams=cams,
+                                          keepOn=keepOn,
+                                          switchOn=switchOn,
+                                          attenuator=attenuator,
+                                          force=force)
 
         self.actor.processSequence(cmd, sequence,
                                    seqtype='imageStability',
