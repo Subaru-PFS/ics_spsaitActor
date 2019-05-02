@@ -69,10 +69,12 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        visits = self.controller.bias(cmd=cmd,
-                                      cams=cams)
+        visit = self.controller.calibExposure(cmd=cmd,
+                                              cams=cams,
+                                              exptype='bias',
+                                              exptime=0)
 
-        cmd.finish('newVisits=%s' % ','.join([str(visit) for visit in visits]))
+        cmd.finish('newVisits=%i' % visit)
 
     @threaded
     def doDark(self, cmd):
@@ -82,8 +84,9 @@ class SingleCmd(object):
         cams = [cmdKeys['cam'].values[0]] if 'cam' in cmdKeys else cams
         cams = cmdKeys['cams'].values if 'cams' in cmdKeys else cams
 
-        visits = self.controller.dark(cmd=cmd,
-                                      exptime=exptime,
-                                      cams=cams)
+        visit = self.controller.calibExposure(cmd=cmd,
+                                              cams=cams,
+                                              exptype='dark',
+                                              exptime=exptime)
 
-        cmd.finish('newVisits=%s' % ','.join([str(visit) for visit in visits]))
+        cmd.finish('newVisits=%i' % visit)

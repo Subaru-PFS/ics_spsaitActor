@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime as dt
+from datetime import timedelta
 from functools import partial
 
 import numpy as np
@@ -84,7 +85,12 @@ class Exposure(CcdList):
     def wipeCcd(self, cmd):
 
         for ccd in self.ccdActive:
-            ccd.wipe(cmd)
+            ccd.wipeCmd(cmd)
+
+    def readCcd(self, cmd, exptime):
+
+        for ccd in self.ccdActive:
+            ccd.readCmd(cmd, exptime=exptime)
 
     def cmdShutters(self, cmd, exptime):
         shutters = {}
@@ -108,45 +114,6 @@ class Exposure(CcdList):
                             )
         return self.visit
 
-
-class Biases(CcdList):
-    def __init__(self, actor, cams, cmd):
-        CcdList.__init__(self, actor=actor, cmd=cmd, cams=cams)
-
-        for cam in cams:
-            self.ccds.append(Bias(actor=actor, cmd=cmd, cam=cam))
-
-    def store(self):
-        for ccd in self.ccds:
-            Logbook.newExposure(exposureId=ccd.exposureId,
-                                site='L',
-                                visit=ccd.visit,
-                                obsdate=ccd.dateobs,
-                                exptime=ccd.exptime,
-                                exptype=ccd.exptype,
-                                )
-
-        return [ccd.visit for ccd in self.ccds]
-
-
-class Darks(CcdList):
-    def __init__(self, actor, cams, cmd, exptime):
-        CcdList.__init__(self, actor=actor, cmd=cmd, cams=cams)
-
-        for cam in cams:
-            self.ccds.append(Dark(actor=actor, cmd=cmd, exptime=exptime, cam=cam))
-
-    def store(self):
-        for ccd in self.ccds:
-            Logbook.newExposure(exposureId=ccd.exposureId,
-                                site='L',
-                                visit=ccd.visit,
-                                obsdate=ccd.dateobs,
-                                exptime=ccd.exptime,
-                                exptype=ccd.exptype,
-                                )
-
-        return [ccd.visit for ccd in self.ccds]
 
 
 class ShaThread(QThread):
@@ -189,6 +156,7 @@ class CcdThread(QThread):
         self.state = None
         self.isLogged = False
         self.activated = False
+        self.darktime = None
 
         ccdKeys = self.actor.models[self.ccdActor]
         ccdKeys.keyVarDict['exposureState'].addCallback(self.exposureState, callNow=False)
@@ -211,11 +179,26 @@ class CcdThread(QThread):
         self.state = state
 
         if state == 'integrating':
-            self.darktime = time.time()
+            self.darktime = dt.utcnow()
 
-    def wipe(self, cmd):
+    def wipeCmd(self, cmd):
         self.activated = True
         self.thrCall(actor=self.ccdActor, cmdStr='wipe', timeLim=60, forUserCmd=cmd)
+
+    def readCmd(self, cmd, exptime):
+        while self.darktime is None:
+            pass
+
+        self.waitUntil(start=self.darktime, exptime=exptime)
+
+        dateobs = self.darktime.isoformat()
+        darktime = (dt.utcnow() - self.darktime).total_seconds()
+
+        self.thrCall(actor=self.ccdActor,
+                     cmdStr='read %s visit=%i exptime=%.3f darktime=%.3f obstime=%s' % (self.exptype, self.visit,
+                                                                                        exptime, darktime, dateobs),
+                     timeLim=60,
+                     forUserCmd=cmd)
 
     def read(self, keyvar):
         if not (self.activated and self.state == 'integrating'):
@@ -226,7 +209,7 @@ class CcdThread(QThread):
                 raise ValueError
 
             dateobs = self.dateobs()
-            darktime = time.time() - self.darktime
+            darktime = (dt.utcnow() - self.darktime).total_seconds()
 
         except ValueError:
             return
@@ -298,6 +281,21 @@ class CcdThread(QThread):
 
         self.isLogged = True
 
+    def waitUntil(self, start, exptime, ti=0.001):
+        """| Temporization, check every 0.01 sec for a user abort command.
+
+        :param cmd: current command,
+        :param exptime: exposure time,
+        :type exptime: float
+        :raise: Exception("Exposure aborted by user") if the an abort command has been received
+        """
+        tlim = start + timedelta(seconds=exptime)
+
+        while dt.utcnow() < tlim:
+            time.sleep(ti)
+
+        return dt.utcnow()
+
     def exit(self):
         """ Signal our thread in .run() that it should exit. """
         ccdKeys = self.actor.models[self.ccdActor]
@@ -308,46 +306,6 @@ class CcdThread(QThread):
         enuKeys.keyVarDict['exptime'].removeCallback(self.read)
 
         self.exitASAP = True
-
-
-class CalibThread(CcdThread):
-    def __init__(self, actor, exptype, exptime, cmd, cam):
-        self.exptime = exptime
-        self.dateobs = dt.utcnow().isoformat()
-
-        CcdThread.__init__(self, actor=actor, exptype=exptype, visit=None, cmd=cmd, cam=cam)
-        self.activated = True
-
-    def read(self, keyvar):
-        pass
-
-    def storeCamExposure(self, keyvar):
-        rootDir, dateDir, filename = keyvar.getValue()
-
-        self.visit = int(filename[4:10])
-        self.exposureId = filename[:10]
-
-        CcdThread.storeCamExposure(self, keyvar)
-
-
-class Bias(CalibThread):
-    def __init__(self, actor, cmd, cam):
-        CalibThread.__init__(self, actor=actor, exptype='bias', exptime=0, cmd=cmd, cam=cam)
-
-        self.thrCall(actor=self.ccdActor,
-                     cmdStr='expose nbias=1',
-                     timeLim=60,
-                     forUserCmd=cmd)
-
-
-class Dark(CalibThread):
-    def __init__(self, actor, cmd, exptime, cam):
-        CalibThread.__init__(self, actor=actor, exptype='dark', exptime=exptime, cmd=cmd, cam=cam)
-
-        self.thrCall(actor=self.ccdActor,
-                     cmdStr='expose darks=%.2f' % exptime,
-                     timeLim=60 + exptime,
-                     forUserCmd=cmd)
 
 
 class single(QThread):
@@ -387,42 +345,29 @@ class single(QThread):
         visit = exposure.store()
         return visit
 
-    def bias(self, cmd, cams):
+    def calibExposure(self, cmd, cams, exptype, exptime):
         cams = cams if cams else self.actor.cams
+        visit = self.actor.getSeqno(cmd=cmd)
+        exposure = Exposure(actor=self.actor,
+                            cams=cams,
+                            visit=visit,
+                            exptype=exptype,
+                            exptime=exptime,
+                            cmd=cmd)
 
-        biases = Biases(actor=self.actor,
-                        cams=cams,
-                        cmd=cmd)
+        exposure.wipeCcd(cmd=cmd)
+        exposure.readCcd(cmd=cmd, exptime=exptime)
 
-        biases.waitAndHandle(state='reading', timeout=60)
-        biases.waitAndHandle(state='idle', timeout=180, force=True)
+        exposure.waitAndHandle(state='reading', timeout=60 + exptime)
+        exposure.waitAndHandle(state='idle', timeout=180, force=True)
 
         start = time.time()
-        while not biases.filesExist():
-            if time.time() - start > biases.timeout:
+        while not exposure.filesExist():
+            if time.time() - start > exposure.timeout:
                 raise Exception('no exposure has been created')
 
-        visits = biases.store()
-        return visits
-
-    def dark(self, cmd, exptime, cams):
-        cams = cams if cams else self.actor.cams
-
-        darks = Darks(actor=self.actor,
-                      cams=cams,
-                      cmd=cmd,
-                      exptime=exptime)
-
-        darks.waitAndHandle(state='reading', timeout=60 + exptime)
-        darks.waitAndHandle(state='idle', timeout=180, force=True)
-
-        start = time.time()
-        while not darks.filesExist():
-            if time.time() - start > darks.timeout:
-                raise Exception('no exposure has been created')
-
-        visits = darks.store()
-        return visits
+        visit = exposure.store()
+        return visit
 
     def start(self, cmd=None):
         QThread.start(self)
