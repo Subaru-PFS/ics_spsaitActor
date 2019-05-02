@@ -6,7 +6,7 @@ def cleanStr(txt):
 
 
 class Logbook:
-    path = '///home/arnaud/data/ait/'
+    path = '///data/ait/'
 
     @staticmethod
     def newExperiment(dbname, experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, startdate, cmdError,
