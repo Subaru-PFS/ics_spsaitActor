@@ -19,7 +19,7 @@ class DefocusCmd(object):
         self.name = "defocus"
         self.vocab = [
             ('defocus',
-             '<exptime> <nbPosition> [<lowBound>] [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
+             '<exptime> <nbPosition> <attenuator> [<lowBound>] [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.defocus)
         ]
 
@@ -58,11 +58,11 @@ class DefocusCmd(object):
 
         exptime = cmdKeys['exptime'].values[0]
         nbPosition = cmdKeys['nbPosition'].values[0]
+        attenuator = cmdKeys['attenuator'].values[0]
         lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else -5
         upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 5
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
-        attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
         force = 'force' if 'force' in cmdKeys else ''
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
         switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
@@ -77,12 +77,9 @@ class DefocusCmd(object):
         if exptime <= 0:
             raise Exception("exptime must be > 0")
 
-        head += FocusFlats(cams=cams)
-        tail = FocusFlats(cams=cams) + tail
-
         if switchOn:
             head += [SubCmd(actor='dcb',
-                            cmdStr="arc on=%s %s %s" % (','.join(switchOn), attenuator, force),
+                            cmdStr="arc on=%s attenuator=%d %s" % (','.join(switchOn), attenuator, force),
                             timeLim=300)]
 
         if switchOff:
@@ -91,6 +88,7 @@ class DefocusCmd(object):
 
         sequence = self.controller.defocus(exptime=exptime,
                                            nbPosition=nbPosition,
+                                           attenuator=attenuator,
                                            lowBound=lowBound,
                                            upBound=upBound,
                                            cams=cams,
