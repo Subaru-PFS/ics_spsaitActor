@@ -4,8 +4,8 @@
 import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils import threaded
 from spsaitActor.sequencing import SubCmd
+from spsaitActor.utils import threaded
 
 
 class AlignCmd(object):
@@ -23,11 +23,13 @@ class AlignCmd(object):
              'align <exptime> <nbPosition> <lowBound> <upBound> [<fiber>] [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]',
              self.slitAlign),
             ('detector',
-             'throughfocus <exptime> <cam> <nbPosition> [<lowBound>] [<upBound>] [<startPosition>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<name>] [<comments>] [<head>] [<tail>]',
+             'throughfocus <exptime> <cam> <nbPosition> [<lowBound>] [<upBound>] [<startPosition>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<waveRange>] [<name>] [<comments>] [<head>] [<tail>]',
              self.detAlign),
             ('slit',
-            'throughfocus <exptime> <nbPosition> <lowBound> [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
+             'throughfocus <exptime> <nbPosition> <lowBound> [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.slitTF),
+            ('detector',
+             'scan <exptime> <waveRange> [<duplicate>] [<cam>] [<name>] [<comments>] [<head>] [<tail>]', self.detScan),
         ]
 
         # Define typed command arguments for the above commands.
@@ -48,6 +50,8 @@ class AlignCmd(object):
                                         keys.Key("switchOff", types.String() * (1, None),
                                                  help='which arc lamp to switch off.'),
                                         keys.Key("attenuator", types.Int(), help='Attenuator value.'),
+                                        keys.Key("waveRange", types.Float(), types.Float() * (1, 3),
+                                                 help='monochromator wavelength range'),
                                         keys.Key("cam", types.String() * (1,),
                                                  help='list of camera to take exposure from'),
                                         keys.Key("name", types.String(), help='experiment name'),
@@ -62,7 +66,6 @@ class AlignCmd(object):
             return self.actor.controllers[self.name]
         except KeyError:
             raise RuntimeError('%s controller is not connected.' % self.name)
-
 
     @threaded
     def slitAlign(self, cmd):
@@ -113,6 +116,7 @@ class AlignCmd(object):
         switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
         force = 'force' if 'force' in cmdKeys else ''
+        waveRange = cmdKeys['waveRange'].values if 'waveRange' in cmdKeys else False
 
         cam = cmdKeys['cam'].values[0]
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
@@ -121,7 +125,7 @@ class AlignCmd(object):
         tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         if exptime <= 0:
-            raise Exception("exptime must be > 0")
+            raise ValueError("exptime must be > 0")
 
         if switchOn:
             head += [SubCmd(actor='dcb',
@@ -137,7 +141,8 @@ class AlignCmd(object):
                                             startPosition=np.array(startPosition),
                                             upBound=upBound,
                                             nbPosition=nbPosition,
-                                            duplicate=duplicate)
+                                            duplicate=duplicate,
+                                            waveRange=waveRange)
 
         self.actor.processSequence(cmd, sequence,
                                    seqtype='detectorAlignment',
@@ -172,7 +177,7 @@ class AlignCmd(object):
         tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         if exptime <= 0:
-            raise Exception("exptime must be > 0")
+            raise ValueError("exptime must be > 0")
 
         if switchOn:
             head += [SubCmd(actor='dcb',
@@ -190,9 +195,44 @@ class AlignCmd(object):
                                           cams=cams,
                                           duplicate=duplicate)
 
-
         self.actor.processSequence(cmd, sequence,
                                    seqtype='slitThroughFocus',
+                                   name=name,
+                                   comments=comments,
+                                   head=head,
+                                   tail=tail)
+
+        cmd.finish()
+
+    @threaded
+    def detScan(self, cmd):
+        self.actor.resetSequence()
+        cmdKeys = cmd.cmd.keywords
+
+        exptime = cmdKeys['exptime'].values[0]
+        waveStart, waveEnd, waveStep = cmdKeys['waveRange'].values
+
+        duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+
+        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
+        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
+        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
+
+        if exptime <= 0:
+            raise ValueError("exptime must be > 0")
+
+        sequence = self.controller.detScan(exptime=exptime,
+                                           waveStart=waveStart,
+                                           waveEnd=waveEnd,
+                                           waveStep=waveStep,
+                                           cams=cams,
+                                           duplicate=duplicate)
+
+        self.actor.processSequence(cmd, sequence,
+                                   seqtype='detScan',
                                    name=name,
                                    comments=comments,
                                    head=head,
