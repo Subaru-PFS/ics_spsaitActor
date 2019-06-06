@@ -1,11 +1,14 @@
 import logging
+from collections import OrderedDict
+import numpy as np
 
 from actorcore.QThread import QThread
 from spsaitActor.sequencing import Sequence
-from collections import OrderedDict
+
 
 class align(QThread):
     posName = ['X', 'Y', 'Z', 'U', 'V', 'W']
+
     def __init__(self, actor, name, loglevel=logging.DEBUG):
         """This sets up the connections to/from the hub, the logger, and the twisted reactor.
 
@@ -40,7 +43,7 @@ class align(QThread):
                           timeLim=60 + exptime)
         return seq
 
-    def detalign(self, exptime, cam, startPosition, upBound, nbPosition, duplicate):
+    def detalign(self, exptime, cam, startPosition, upBound, nbPosition, duplicate, waveRange):
         seq = Sequence()
         xcuActor = 'xcu_%s' % cam
         step = (upBound - max(startPosition)) / (nbPosition - 1)
@@ -49,11 +52,28 @@ class align(QThread):
             posA, posB, posC = startPosition + i * step
             seq.addSubCmd(actor=xcuActor,
                           cmdStr='motors moveCcd a=%i b=%i c=%i microns abs' % (posA, posB, posC))
+            if not waveRange:
+                seq.addSubCmd(actor='spsait',
+                              cmdStr='single arc exptime=%.2f cam=%s' % (exptime, cam),
+                              duplicate=duplicate,
+                              timeLim=120 + exptime)
+            else:
+                seq.extend(self.detScan(exptime, cam, duplicate, *waveRange))
 
+        return seq
+
+    def detScan(self, exptime, cams, duplicate, waveStart, waveEnd, waveStep):
+        waves = np.arange(waveStart, waveEnd+waveStep, waveStep)
+
+        seq = Sequence()
+        for wave in waves:
+            seq.addSubCmd(actor='dcb',
+                          cmdStr='mono set wave=%.5f'%wave)
             seq.addSubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f cam=%s' % (exptime, cam),
+                          cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
                           duplicate=duplicate,
                           timeLim=120 + exptime)
+
         return seq
 
     def slitTF(self, exptime, nbPosition, lowBound, upBound, cams, duplicate):
