@@ -58,12 +58,12 @@ class align(QThread):
                               duplicate=duplicate,
                               timeLim=120 + exptime)
             else:
-                seq.extend(self.detScan(exptime, cam, duplicate, *waveRange))
+                seq.extend(self.detScan(exptime, [cam], duplicate, *waveRange))
 
         return seq
 
-    def detScan(self, exptime, cams, duplicate, waveStart, waveEnd, waveStep):
-        waves = np.arange(waveStart, waveEnd+waveStep, waveStep)
+    def detScan(self, exptime, cams, duplicate, waveStart, waveEnd, waveNb):
+        waves = np.linspace(waveStart, waveEnd, waveNb)
 
         seq = Sequence()
         for wave in waves:

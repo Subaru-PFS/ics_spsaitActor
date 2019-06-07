@@ -210,7 +210,7 @@ class AlignCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        waveStart, waveEnd, waveStep = cmdKeys['waveRange'].values
+        waveStart, waveEnd, waveNb = cmdKeys['waveRange'].values
 
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
@@ -227,7 +227,7 @@ class AlignCmd(object):
         sequence = self.controller.detScan(exptime=exptime,
                                            waveStart=waveStart,
                                            waveEnd=waveEnd,
-                                           waveStep=waveStep,
+                                           waveNb=waveNb,
                                            cams=cams,
                                            duplicate=duplicate)
 
