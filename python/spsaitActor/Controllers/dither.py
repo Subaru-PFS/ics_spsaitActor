@@ -64,8 +64,8 @@ class dither(QThread):
 
                 for enuActor in enuActors:
                     seq.addSubCmd(actor=enuActor, cmdStr='slit home')
-                    seq.addSubCmd(actor=enuActor, cmdStr='slit shift=%.5f pixels' % yn * shift)
-                    seq.addSubCmd(actor=enuActor, cmdStr='slit shift=%.5f pixels' % zn * shift)
+                    seq.addSubCmd(actor=enuActor, cmdStr='slit shift=%.5f pixels' % (yn * shift))
+                    seq.addSubCmd(actor=enuActor, cmdStr='slit dither=%.5f pixels' % (zn * shift))
 
                 seq.addSubCmd(actor='spsait',
                               cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
