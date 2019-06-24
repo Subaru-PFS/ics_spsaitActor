@@ -1,7 +1,7 @@
 import logging
 from collections import OrderedDict
-import numpy as np
 
+import numpy as np
 from actorcore.QThread import QThread
 from spsaitActor.sequencing import Sequence
 
@@ -53,8 +53,8 @@ class align(QThread):
             seq.addSubCmd(actor=xcuActor,
                           cmdStr='motors moveCcd a=%i b=%i c=%i microns abs' % (posA, posB, posC))
             if not waveRange:
-                seq.addSubCmd(actor='spsait',
-                              cmdStr='single arc exptime=%.2f cam=%s' % (exptime, cam),
+                seq.addSubCmd(actor='sps',
+                              cmdStr='expose arc exptime=%.2f cam=%s' % (exptime, cam),
                               duplicate=duplicate,
                               timeLim=120 + exptime)
             else:
@@ -63,24 +63,26 @@ class align(QThread):
         return seq
 
     def detScan(self, exptime, cams, duplicate, waveStart, waveEnd, waveNb):
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
         waves = np.linspace(waveStart, waveEnd, waveNb)
 
         seq = Sequence()
         for wave in waves:
             seq.addSubCmd(actor='dcb',
-                          cmdStr='mono set wave=%.5f'%wave)
-            seq.addSubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                          cmdStr='mono set wave=%.5f' % wave)
+            seq.addSubCmd(actor='sps',
+                          cmdStr='expose arc exptime=%.2f %s' % (exptime, cams),
                           duplicate=duplicate,
                           timeLim=120 + exptime)
 
         return seq
 
     def slitTF(self, exptime, nbPosition, lowBound, upBound, cams, duplicate):
-        step = (upBound - lowBound) / (nbPosition - 1)
-
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
+
+        step = (upBound - lowBound) / (nbPosition - 1)
 
         seq = Sequence()
 
@@ -92,8 +94,8 @@ class align(QThread):
                 posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(align.posName, posAbsolute)])
                 seq.addSubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute)
 
-            seq.addSubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+            seq.addSubCmd(actor='sps',
+                          cmdStr='expose arc exptime=%.2f %s' % (exptime, cams),
                           timeLim=120 + exptime,
                           duplicate=duplicate)
 

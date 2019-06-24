@@ -169,7 +169,7 @@ class AlignCmd(object):
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False
         switchOff = cmdKeys['switchOff'].values if 'switchOff' in cmdKeys else False
 
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -214,7 +214,7 @@ class AlignCmd(object):
 
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''

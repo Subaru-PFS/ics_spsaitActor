@@ -66,7 +66,7 @@ class CalibCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -90,7 +90,7 @@ class CalibCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -121,7 +121,7 @@ class CalibCmd(object):
         ndarks = cmdKeys['ndarks'].values[0] if 'ndarks' in cmdKeys else 5
         exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
         nbias = cmdKeys['nbias'].values[0] if 'nbias' in cmdKeys else 15
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -152,7 +152,7 @@ class CalibCmd(object):
         nbPosition = cmdKeys['nbPosition'].values[0]
         delay = cmdKeys['delay'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
         keepOn = True if 'keepOn' in cmdKeys else False
 
         switchOn = cmdKeys['switchOn'].values if 'switchOn' in cmdKeys else False

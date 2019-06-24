@@ -19,8 +19,8 @@ class expose(QThread):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         seq = Sequence()
 
-        seq.addSubCmd(actor='spsait',
-                      cmdStr='single %s exptime=%.2f %s' % (exptype, exptime, cams),
+        seq.addSubCmd(actor='sps',
+                      cmdStr='expose %s exptime=%.2f %s' % (exptype, exptime, cams),
                       timeLim=120 + exptime,
                       duplicate=duplicate)
 

@@ -18,16 +18,16 @@ class calib(QThread):
     def biases(self, duplicate, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         seq = Sequence()
-        seq.addSubCmd(actor='spsait',
-                      cmdStr='single bias %s' % cams,
+        seq.addSubCmd(actor='sps',
+                      cmdStr='expose bias %s' % cams,
                       duplicate=duplicate)
         return seq
 
     def darks(self, duplicate, exptime, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         seq = Sequence()
-        seq.addSubCmd(actor='spsait',
-                      cmdStr='single dark exptime=%.2f %s' % (exptime, cams),
+        seq.addSubCmd(actor='sps',
+                      cmdStr='expose dark exptime=%.2f %s' % (exptime, cams),
                       duplicate=duplicate,
                       timeLim=120 + exptime)
         return seq
@@ -43,8 +43,8 @@ class calib(QThread):
                           cmdStr=cmdOn,
                           timeLim=300)
 
-            seq.addSubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f %s' % (exptime, cams),
+            seq.addSubCmd(actor='sps',
+                          cmdStr='expose arc exptime=%.2f %s' % (exptime, cams),
                           timeLim=120 + exptime,
                           duplicate=duplicate)
 

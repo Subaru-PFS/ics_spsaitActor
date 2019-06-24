@@ -68,7 +68,7 @@ class DitherCmd(object):
         force = 'force' if 'force' in cmdKeys else ''
         switchOff = True if 'switchOff' in cmdKeys else False
 
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
@@ -115,7 +115,7 @@ class DitherCmd(object):
         head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
         tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")

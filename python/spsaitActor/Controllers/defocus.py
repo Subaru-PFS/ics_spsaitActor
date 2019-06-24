@@ -25,10 +25,10 @@ class defocus(QThread):
         return exptime * np.polyval(pmean, focus)
 
     def defocus(self, exptime, nbPosition, attenuator, lowBound, upBound, cams, duplicate):
-        step = (upBound - lowBound) / (nbPosition - 1)
-
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
+        step = (upBound - lowBound) / (nbPosition - 1)
 
         seq = Sequence()
 
@@ -43,8 +43,8 @@ class defocus(QThread):
                 posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(defocus.posName, posAbsolute)])
                 seq.addSubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute)
 
-            seq.addSubCmd(actor='spsait',
-                          cmdStr='single arc exptime=%.2f cams=%s' % (cexptime, ','.join(cams)),
+            seq.addSubCmd(actor='sps',
+                          cmdStr='expose arc exptime=%.2f %s' % (cexptime, cams),
                           timeLim=120 + cexptime,
                           duplicate=duplicate)
 
