@@ -72,7 +72,7 @@ class ExposeCmd(object):
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
         force = 'force' if 'force' in cmdKeys else ''
 
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else self.actor.cams
+        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''

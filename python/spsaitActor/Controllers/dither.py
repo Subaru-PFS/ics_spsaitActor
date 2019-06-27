@@ -17,20 +17,21 @@ class dither(QThread):
 
     def ditherflat(self, exptime, cams, shift, nbPosition, duplicate):
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 
         seq = Sequence()
 
-        seq.addSubCmd(actor='spsait',
-                      cmdStr='single flat exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+        seq.addSubCmd(actor='sps',
+                      cmdStr='expose flat exptime=%.2f %s' % (exptime, cams),
                       timeLim=120 + exptime,
                       duplicate=duplicate)
 
         for enuActor in enuActors:
             seq.addSubCmd(actor=enuActor, cmdStr='slit dither=%.5f pixels' % (-nbPosition * shift))
 
-        seq.addSubCmd(actor='spsait',
-                      cmdStr='single flat exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+        seq.addSubCmd(actor='sps',
+                      cmdStr='expose flat exptime=%.2f %s' % (exptime, cams),
                       timeLim=120 + exptime,
                       duplicate=duplicate)
 
@@ -38,16 +39,16 @@ class dither(QThread):
             for enuActor in enuActors:
                 seq.addSubCmd(actor=enuActor, cmdStr='slit dither=%.5f pixels' % shift)
 
-            seq.addSubCmd(actor='spsait',
-                          cmdStr='single flat exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+            seq.addSubCmd(actor='sps',
+                          cmdStr='expose flat exptime=%.2f %s' % (exptime, cams),
                           timeLim=120 + exptime,
                           duplicate=duplicate)
 
         for enuActor in enuActors:
             seq.addSubCmd(actor=enuActor, cmdStr='slit dither=%.5f pixels' % (-nbPosition * shift))
 
-        seq.addSubCmd(actor='spsait',
-                      cmdStr='single flat exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+        seq.addSubCmd(actor='sps',
+                      cmdStr='expose flat exptime=%.2f %s' % (exptime, cams),
                       timeLim=120 + exptime,
                       duplicate=duplicate)
 
@@ -55,6 +56,7 @@ class dither(QThread):
 
     def ditherpsf(self, exptime, cams, shift, duplicate):
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 
         seq = Sequence()
@@ -67,8 +69,8 @@ class dither(QThread):
                     seq.addSubCmd(actor=enuActor, cmdStr='slit shift=%.5f pixels' % (yn * shift))
                     seq.addSubCmd(actor=enuActor, cmdStr='slit dither=%.5f pixels' % (zn * shift))
 
-                seq.addSubCmd(actor='spsait',
-                              cmdStr='single arc exptime=%.2f cams=%s' % (exptime, ','.join(cams)),
+                seq.addSubCmd(actor='sps',
+                              cmdStr='expose arc exptime=%.2f %s' % (exptime, cams),
                               timeLim=120 + exptime,
                               duplicate=duplicate)
 
