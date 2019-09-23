@@ -3,9 +3,9 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
-
+from spsaitActor.utils.sequencing import CmdList
+import numpy as np
 
 class SacCmd(object):
     def __init__(self, actor):
@@ -18,7 +18,8 @@ class SacCmd(object):
         #
         self.name = "sac"
         self.vocab = [
-            ('sac', '@(expose|background) <exptime> [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]', self.expose),
+            ('sac',
+             '@(expose|background) <exptime> [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]', self.expose),
             ('sac',
              'align <exptime> <position> <focus> [<duplicate>] [<name>] [<comments>] [<head>] [<tail>]', self.sacAlign),
             ('sac',
@@ -79,10 +80,9 @@ class SacCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
+        positions = np.linspace(*cmdKeys['position'].values)
         focus = cmdKeys['focus'].values[0]
-        nbPosition = cmdKeys['nbPosition'].values[0]
-        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else -300
-        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 500
+
         duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
@@ -91,10 +91,8 @@ class SacCmd(object):
         tail = CmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         sequence = self.controller.sacalign(exptime=exptime,
+                                            positions=positions,
                                             focus=focus,
-                                            lowBound=lowBound,
-                                            upBound=upBound,
-                                            nbPosition=nbPosition,
                                             duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
@@ -112,9 +110,7 @@ class SacCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        nbPosition = cmdKeys['nbPosition'].values[0]
-        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else 0
-        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 12
+        positions = np.linspace(*cmdKeys['position'].values)
         duplicate = cmdKeys['duplicate'].values[0] if 'duplicate' in cmdKeys else 1
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
@@ -123,9 +119,7 @@ class SacCmd(object):
         tail = CmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         sequence = self.controller.sacTF(exptime=exptime,
-                                         lowBound=lowBound,
-                                         upBound=upBound,
-                                         nbPosition=nbPosition,
+                                         positions=positions,
                                          duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,

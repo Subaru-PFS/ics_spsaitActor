@@ -3,8 +3,8 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
+from spsaitActor.utils.sequencing import CmdList
 
 
 class CustomCmd(object):
@@ -20,7 +20,6 @@ class CustomCmd(object):
         self.name = "test"
         self.vocab = [
             ('custom', '<sequence> [<name>] [<comments>]', self.customSequence),
-
         ]
 
         # Define typed command arguments for the above commands.

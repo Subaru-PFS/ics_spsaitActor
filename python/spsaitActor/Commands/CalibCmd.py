@@ -3,8 +3,8 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
+from spsaitActor.utils.sequencing import SubCmd, CmdList
 
 
 class CalibCmd(object):

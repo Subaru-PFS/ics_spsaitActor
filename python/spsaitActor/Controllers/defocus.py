@@ -3,8 +3,8 @@ from collections import OrderedDict
 
 import numpy as np
 from actorcore.QThread import QThread
-from spsaitActor.utils.sequencing import CmdList
 from spsaitActor.utils.ncaplar import defocused_exposure_times_single_position
+from spsaitActor.utils.sequencing import CmdList
 
 
 class defocus(QThread):
@@ -28,7 +28,6 @@ class defocus(QThread):
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
-
 
         seq = CmdList()
 

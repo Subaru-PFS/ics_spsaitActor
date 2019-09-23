@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 
+import numpy as np
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-import numpy as np
-from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
+from spsaitActor.utils.sequencing import SubCmd, CmdList
 
 
 class DefocusCmd(object):

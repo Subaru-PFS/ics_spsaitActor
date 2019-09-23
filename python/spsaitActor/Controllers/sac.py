@@ -24,15 +24,13 @@ class sac(QThread):
                       timeLim=60 + exptime)
         return seq
 
-    def sacalign(self, exptime, focus, lowBound, upBound, nbPosition, duplicate):
-        step = (upBound - lowBound) / (nbPosition - 1)
-
+    def sacalign(self, exptime, positions, focus, duplicate):
         seq = CmdList()
         seq.addSubCmd(actor='sac', cmdStr='move detector=%.2f abs' % focus)
 
-        for i in range(nbPosition):
+        for position in positions:
             seq.addSubCmd(actor='sac',
-                          cmdStr='move penta=%.2f abs' % (lowBound + i * step))
+                          cmdStr='move penta=%.2f abs' % position)
 
             seq.addSubCmd(actor='sac',
                           cmdStr='ccd expose exptime=%.2f' % exptime,
@@ -40,14 +38,12 @@ class sac(QThread):
                           timeLim=60 + exptime)
         return seq
 
-    def sacTF(self, exptime, lowBound, upBound, nbPosition, duplicate):
-        step = (upBound - lowBound) / (nbPosition - 1)
-
+    def sacTF(self, exptime, positions, duplicate):
         seq = CmdList()
 
-        for i in range(nbPosition):
+        for position in positions:
             seq.addSubCmd(actor='sac',
-                          cmdStr='move detector=%.2f abs' % (lowBound + i * step))
+                          cmdStr='move detector=%.2f abs' % position)
 
             seq.addSubCmd(actor='sac',
                           cmdStr='ccd expose exptime=%.2f' % exptime,
