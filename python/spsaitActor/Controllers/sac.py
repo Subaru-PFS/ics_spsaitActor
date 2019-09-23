@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import Sequence
+from spsaitActor.utils.sequencing import CmdList
 
 
 class sac(QThread):
@@ -17,7 +17,7 @@ class sac(QThread):
 
     def expose(self, exptime, exptype, duplicate):
 
-        seq = Sequence()
+        seq = CmdList()
         seq.addSubCmd(actor='sac',
                       cmdStr='ccd %s exptime=%.2f' % (exptype, exptime),
                       duplicate=duplicate,
@@ -27,7 +27,7 @@ class sac(QThread):
     def sacalign(self, exptime, focus, lowBound, upBound, nbPosition, duplicate):
         step = (upBound - lowBound) / (nbPosition - 1)
 
-        seq = Sequence()
+        seq = CmdList()
         seq.addSubCmd(actor='sac', cmdStr='move detector=%.2f abs' % focus)
 
         for i in range(nbPosition):
@@ -43,7 +43,7 @@ class sac(QThread):
     def sacTF(self, exptime, lowBound, upBound, nbPosition, duplicate):
         step = (upBound - lowBound) / (nbPosition - 1)
 
-        seq = Sequence()
+        seq = CmdList()
 
         for i in range(nbPosition):
             seq.addSubCmd(actor='sac',
@@ -57,6 +57,9 @@ class sac(QThread):
 
     def start(self, cmd=None):
         QThread.start(self)
+
+    def stop(self, cmd=None):
+        self.exit()
 
     def handleTimeout(self):
         """| Is called when the thread is idle

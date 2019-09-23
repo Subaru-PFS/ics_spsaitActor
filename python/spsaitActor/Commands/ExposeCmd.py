@@ -3,9 +3,8 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-
+from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
-from spsaitActor.sequencing import SubCmd
 
 
 class ExposeCmd(object):
@@ -76,8 +75,8 @@ class ExposeCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
+        head = CmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = CmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")

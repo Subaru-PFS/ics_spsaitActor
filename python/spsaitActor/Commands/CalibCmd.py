@@ -3,9 +3,8 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-
+from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
-from spsaitActor.sequencing import SubCmd
 
 
 class CalibCmd(object):
@@ -23,11 +22,8 @@ class CalibCmd(object):
              self.doBias),
             ('dark', '<exptime> [<duplicate>] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.doDarks),
-            ('calib',
-             '[<nbias>] [<ndarks>] [<exptime>] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
-             self.doBasicCalib),
             ('imstab',
-             '<exptime> <nbPosition> <delay> [<duplicate>] [keepOn] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
+             '<exptime> <duration> <delay> [<duplicate>] [keepOn] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.imstab)
         ]
 
@@ -36,10 +32,8 @@ class CalibCmd(object):
                                         keys.Key("duplicate", types.Int(),
                                                  help="duplicate number of exposure per tempo(1 is default)"),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
-                                        keys.Key("ndarks", types.Int(), help="Number of darks"),
-                                        keys.Key("nbias", types.Int(), help="Number of bias"),
-                                        keys.Key("nbPosition", types.Int(), help="Number of position"),
-                                        keys.Key("delay", types.Int(), help="delay in sec"),
+                                        keys.Key("delay", types.Float(), help="delay in hours"),
+                                        keys.Key("duration", types.Float(), help="total duration in hours"),
                                         keys.Key("switchOn", types.String() * (1, None),
                                                  help='which arc lamp to switch on.'),
                                         keys.Key("switchOff", types.String() * (1, None),
@@ -70,8 +64,8 @@ class CalibCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
+        head = CmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = CmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         sequence = self.controller.biases(duplicate=duplicate, cams=cams)
 
@@ -94,8 +88,8 @@ class CalibCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
+        head = CmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = CmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
@@ -114,42 +108,12 @@ class CalibCmd(object):
         cmd.finish()
 
     @threaded
-    def doBasicCalib(self, cmd):
-        self.actor.resetSequence()
-        cmdKeys = cmd.cmd.keywords
-
-        ndarks = cmdKeys['ndarks'].values[0] if 'ndarks' in cmdKeys else 5
-        exptime = cmdKeys['exptime'].values[0] if 'exptime' in cmdKeys else 900
-        nbias = cmdKeys['nbias'].values[0] if 'nbias' in cmdKeys else 15
-        cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
-
-        name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
-        comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
-
-        if exptime <= 0:
-            raise Exception("exptime must be > 0")
-
-        sequence = self.controller.biases(duplicate=nbias, cams=cams)
-        sequence += self.controller.darks(duplicate=ndarks, exptime=exptime, cams=cams)
-
-        self.actor.processSequence(cmd, sequence,
-                                   seqtype='calib',
-                                   name=name,
-                                   comments=comments,
-                                   head=head,
-                                   tail=tail)
-
-        cmd.finish()
-
-    @threaded
     def imstab(self, cmd):
         self.actor.resetSequence()
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        nbPosition = cmdKeys['nbPosition'].values[0]
+        duration = cmdKeys['duration'].values[0]
         delay = cmdKeys['delay'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
         cams = cmdKeys['cam'].values if 'cam' in cmdKeys else False
@@ -162,8 +126,8 @@ class CalibCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
+        head = CmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = CmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
@@ -175,7 +139,7 @@ class CalibCmd(object):
                                   cmdStr="arc off=%s" % ','.join(switchOff)))
 
         sequence = self.controller.imstab(exptime=exptime,
-                                          nbPosition=nbPosition,
+                                          duration=duration,
                                           delay=delay,
                                           duplicate=duplicate,
                                           cams=cams,

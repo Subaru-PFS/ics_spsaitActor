@@ -3,6 +3,7 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
 
 
@@ -35,7 +36,7 @@ class CustomCmd(object):
         cmdKeys = cmd.cmd.keywords
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        sequence = self.actor.subCmdList(cmdKeys['sequence'].values)
+        sequence = CmdList(cmdKeys['sequence'].values)
 
         self.actor.processSequence(cmd, sequence,
                                    seqtype='custom',

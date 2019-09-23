@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import Sequence
+from spsaitActor.utils.sequencing import CmdList
 
 
 class expose(QThread):
@@ -17,7 +17,7 @@ class expose(QThread):
 
     def arcs(self, exptype, exptime, duplicate, cams):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
-        seq = Sequence()
+        seq = CmdList()
 
         seq.addSubCmd(actor='sps',
                       cmdStr='expose %s exptime=%.2f %s' % (exptype, exptime, cams),
@@ -28,6 +28,9 @@ class expose(QThread):
 
     def start(self, cmd=None):
         QThread.start(self)
+
+    def stop(self, cmd=None):
+        self.exit()
 
     def handleTimeout(self):
         """| Is called when the thread is idle

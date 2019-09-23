@@ -3,8 +3,9 @@
 
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
+import numpy as np
+from spsaitActor.utils.sequencing import SubCmd, CmdList
 from spsaitActor.utils import threaded
-from spsaitActor.sequencing import SubCmd, FocusFlats
 
 
 class DefocusCmd(object):
@@ -19,16 +20,15 @@ class DefocusCmd(object):
         self.name = "defocus"
         self.vocab = [
             ('defocus',
-             '<exptime> <nbPosition> <attenuator> [<lowBound>] [<upBound>] [<duplicate>] [<switchOn>] [<switchOff>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
+             '<exptime> <attenuator> <position> [<duplicate>] [<switchOn>] [<switchOff>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.defocus)
         ]
 
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary("spsait_defocus", (1, 1),
                                         keys.Key("exptime", types.Float(), help="The exposure time"),
-                                        keys.Key("nbPosition", types.Int(), help="Number of position"),
-                                        keys.Key("lowBound", types.Float(), help="lower bound for through focus"),
-                                        keys.Key("upBound", types.Float(), help="upper bound for through focus"),
+                                        keys.Key("position", types.Float() * (1, 3),
+                                                 help="slit/motor position for throughfocus same args as np.linspace"),
                                         keys.Key("duplicate", types.Int(),
                                                  help="duplicate number of flat per position(1 is default)"),
                                         keys.Key("switchOn", types.String() * (1, None),
@@ -57,10 +57,8 @@ class DefocusCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        nbPosition = cmdKeys['nbPosition'].values[0]
         attenuator = cmdKeys['attenuator'].values[0]
-        lowBound = cmdKeys['lowBound'].values[0] if 'lowBound' in cmdKeys else -5
-        upBound = cmdKeys['upBound'].values[0] if 'upBound' in cmdKeys else 5
+        positions = np.linspace(*cmdKeys['position'].values)
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         force = 'force' if 'force' in cmdKeys else ''
@@ -71,8 +69,8 @@ class DefocusCmd(object):
 
         name = cmdKeys['name'].values[0] if 'name' in cmdKeys else ''
         comments = cmdKeys['comments'].values[0] if 'comments' in cmdKeys else ''
-        head = self.actor.subCmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
-        tail = self.actor.subCmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
+        head = CmdList(cmdKeys['head'].values) if 'head' in cmdKeys else []
+        tail = CmdList(cmdKeys['tail'].values) if 'tail' in cmdKeys else []
 
         if exptime <= 0:
             raise Exception("exptime must be > 0")
@@ -87,10 +85,8 @@ class DefocusCmd(object):
                                   cmdStr="arc off=%s" % ','.join(switchOff)))
 
         sequence = self.controller.defocus(exptime=exptime,
-                                           nbPosition=nbPosition,
                                            attenuator=attenuator,
-                                           lowBound=lowBound,
-                                           upBound=upBound,
+                                           positions=positions,
                                            cams=cams,
                                            duplicate=duplicate)
 
