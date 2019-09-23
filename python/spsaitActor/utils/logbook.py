@@ -1,12 +1,10 @@
 import sqlite3
 
-
-def cleanStr(txt):
-    return txt.replace('"', "").strip()
+from spsaitActor.utils import cleanStr
 
 
 class Logbook:
-    path = '///data/ait/'
+    path = '///home/arnaud/data/ait/'
 
     @staticmethod
     def newExperiment(dbname, experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, startdate, cmdError,
@@ -33,7 +31,7 @@ class Logbook:
     @staticmethod
     def newExposure(exposureId, site, visit, obsdate, exptime, exptype, quality='junk'):
 
-        sqlRequest = """INSERT INTO Exposure VALUES ('%s','%s', %i, '%s', %.3f, '%s', '%s');""" % (exposureId,
+        sqlRequest = """INSERT INTO Exposure VALUES ("%s","%s", %i, "%s", %.3f, "%s", "%s");""" % (exposureId,
                                                                                                    site,
                                                                                                    visit,
                                                                                                    obsdate,
@@ -44,7 +42,7 @@ class Logbook:
 
     @staticmethod
     def newCamExposure(camExposureId, exposureId, smId, arm):
-        sqlRequest = """INSERT INTO CamExposure VALUES ('%s','%s', %i, '%s');""" % (camExposureId,
+        sqlRequest = """INSERT INTO CamExposure VALUES ("%s","%s", %i, "%s");""" % (camExposureId,
                                                                                     exposureId,
                                                                                     smId,
                                                                                     arm)

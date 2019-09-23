@@ -2,7 +2,7 @@ import logging
 from collections import OrderedDict
 
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import Sequence
+from spsaitActor.utils.sequencing import CmdList
 
 
 class dither(QThread):
@@ -20,7 +20,7 @@ class dither(QThread):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 
-        seq = Sequence()
+        seq = CmdList()
 
         seq.addSubCmd(actor='sps',
                       cmdStr='expose flat exptime=%.2f %s' % (exptime, cams),
@@ -59,7 +59,7 @@ class dither(QThread):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 
-        seq = Sequence()
+        seq = CmdList()
 
         for yn in range(int(1 / shift)):
             for zn in range(int(1 / shift)):
@@ -81,6 +81,9 @@ class dither(QThread):
 
     def start(self, cmd=None):
         QThread.start(self)
+
+    def stop(self, cmd=None):
+        self.exit()
 
     def handleTimeout(self):
         """| Is called when the thread is idle

@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
 
+import time
+
 import opscore.protocols.keys as keys
 import opscore.protocols.types as types
-from spsaitActor.logbook import Logbook
+from spsaitActor.utils import singleShot
+from spsaitActor.utils.logbook import Logbook
 
 
 class TopCmd(object):
@@ -20,7 +23,8 @@ class TopCmd(object):
             ('ping', '', self.ping),
             ('status', '', self.status),
             ('abort', '', self.abort),
-            ('logbook', '<dbname> <experimentId> [<name>] [<comments>] [<anomalies>]', self.setColumnValue)
+            ('logbook', '<dbname> <experimentId> [<name>] [<comments>] [<anomalies>]', self.setColumnValue),
+            ('wait', '<time>', self.wait)
         ]
 
         # Define typed command arguments for the above commands.
@@ -30,6 +34,7 @@ class TopCmd(object):
                                         keys.Key("name", types.String(), help='experiment name'),
                                         keys.Key("comments", types.String(), help='experiment comments'),
                                         keys.Key("anomalies", types.String(), help='anomalies message'),
+                                        keys.Key("time", types.Int(), help="time to wait"),
                                         )
 
     def ping(self, cmd):
@@ -40,12 +45,13 @@ class TopCmd(object):
     def status(self, cmd):
         """Report status and version; obtain and send current data"""
 
-        cmd.inform('text="Present!"')
+        self.actor.getStatus(cmd)
+        self.actor.sendVersionKey(cmd)
         cmd.finish()
 
     def abort(self, cmd):
         self.actor.doStop = True
-        self.actor.abortShutters(cmd)
+        self.actor.cmdr.call(actor='sps', cmdStr='exposure abort', forUserCmd=cmd)
 
         cmd.finish("text='Aborting'")
 
@@ -65,5 +71,14 @@ class TopCmd(object):
         if 'anomalies' in cmdKeys:
             Logbook.setColumnValue(dbname=dbname, experimentId=experimentId, column='anomalies',
                                    value=cmdKeys['anomalies'].values[0])
+
+        cmd.finish()
+
+    @singleShot
+    def wait(self, cmd):
+        self.actor.resetSequence()
+        cmdKeys = cmd.cmd.keywords
+        seconds = cmdKeys['time'].values[0]
+        self.actor.waitUntil(time.time() + seconds)
 
         cmd.finish()

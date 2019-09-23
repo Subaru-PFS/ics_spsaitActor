@@ -3,9 +3,8 @@
 import argparse
 import logging
 import time
-
 import actorcore.ICC
-from spsaitActor.sequencing import Experiment, CmdFail, Sequence
+from spsaitActor.utils.experiment import Experiment
 
 
 class SpsaitActor(actorcore.ICC.ICC):
@@ -22,6 +21,7 @@ class SpsaitActor(actorcore.ICC.ICC):
                                    modelNames=self.enus)
 
         self.everConnected = False
+        self.current = None
         self.doStop = False
 
         self.logger.setLevel(logLevel)
@@ -30,81 +30,34 @@ class SpsaitActor(actorcore.ICC.ICC):
     def specToAlign(self):
         return self.config.getint('spsait', 'specToAlign')
 
-    def safeCall(self, doRaise=True, doRetry=False, **kwargs):
-
-        cmd = kwargs["forUserCmd"]
-        kwargs["timeLim"] = 300 if "timeLim" not in kwargs.keys() else kwargs["timeLim"]
-
-        cmdVar = self.cmdr.call(**kwargs)
-
-        if cmdVar.didFail and doRaise:
-            reply = cmdVar.replyList[-1]
-            raise CmdFail("actor=%s %s" % (reply.header.actor, reply.keywords.canonical(delimiter=';')))
-        return cmdVar
-
-    def processSubCmd(self, cmd, experiment, subCmd, doRaise=True):
-        cmdVar = self.safeCall(doRaise=doRaise, **(subCmd.build(cmd)))
-
-        try:
-            returnStr = self.recordVisit(cmdVar=cmdVar, experiment=experiment)
-        except KeyError:
-            returnStr = ''
-
-        subCmd.inform(cmd=cmd, didFail=cmdVar.didFail, returnStr=returnStr)
-
-        self.waitUntil(end=(time.time() + subCmd.tempo), doRaise=doRaise)
-
-    def recordVisit(self, cmdVar, experiment):
-        if cmdVar.didFail:
-            return ''
-
-        lastKeywords = cmdVar.replyList[-1].keywords
-        newVisits = lastKeywords['visit'].values
-        experiment.addVisits(newVisits=newVisits)
-        return ';'.join(newVisits)
-
     def processSequence(self, cmd, sequence, seqtype, name, comments, head=None, tail=None):
         head = [] if head is None else head
         tail = [] if tail is None else tail
 
-        experiment = Experiment(rawCmd=cmd.rawCmd, sequence=sequence, seqtype=seqtype, name=name, comments=comments,
-                                head=head, tail=tail)
-        cmd.inform('newExperiment=%s' % experiment.info)
+        self.current = Experiment(self, rawCmd=cmd.rawCmd, sequence=sequence, seqtype=seqtype,
+                                  name=name, comments=comments, head=head, tail=tail)
 
-        try:
-            for subCmd in (head + sequence):
-                self.processSubCmd(cmd=cmd, experiment=experiment, subCmd=subCmd)
+        self.current.inform(cmd=cmd)
+        self.current.registerCmds(cmd=cmd)
+        self.current.process(cmd=cmd)
+        self.current = None
 
-        except Exception as e:
-            experiment.handleError(cmd=cmd, error=self.strTraceback(e))
-            raise
+    def getStatus(self, cmd):
+        if self.current is None:
+            return
+        self.current.inform(cmd=cmd)
+        self.current.status(cmd=cmd)
 
-        finally:
-            for subCmd in tail:
-                self.processSubCmd(cmd=cmd, experiment=experiment, subCmd=subCmd, doRaise=False)
+    def waitUntil(self, end, ti=0.01):
+        while time.time() < end:
+            if self.doStop:
+                break
+            time.sleep(ti)
 
-            experiment.store()
-
-    def subCmdList(self, cmdList):
-        subCmds = Sequence()
-
-        for cmd in cmdList:
-            actor, cmdStr = cmd.split(' ', 1)
-            subCmds.addSubCmd(actor=actor, cmdStr=cmdStr)
-
-        return subCmds
-
-    def abortShutters(self, cmd):
-        for enu in self.enus:
-            cmdVar = self.cmdr.call(actor=enu, cmdStr="exposure abort", forUserCmd=cmd)
+        return self.doStop
 
     def resetSequence(self):
         self.doStop = False
-
-    def waitUntil(self, end, doRaise=True):
-        while time.time() < end:
-            if self.doStop and doRaise:
-                raise UserWarning('Stop requested')
 
     def connectionMade(self):
         if self.everConnected is False:

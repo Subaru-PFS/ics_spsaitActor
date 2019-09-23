@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 import numpy as np
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import Sequence
+from spsaitActor.utils.sequencing import CmdList
 
 
 class align(QThread):
@@ -19,8 +19,8 @@ class align(QThread):
         self.logger = logging.getLogger(self.name)
         self.logger.setLevel(loglevel)
 
-    def slitalign(self, exptime, targetedFiber, lowBound, upBound, nbPosition, duplicate):
-        seq = Sequence()
+    def slitalign(self, exptime, positions, targetedFiber, duplicate):
+        seq = CmdList()
 
         if targetedFiber:
             seq.addSubCmd(actor='breva', cmdStr='goto fiber=%s' % targetedFiber)
@@ -28,11 +28,9 @@ class align(QThread):
         enuActor = 'enu_sm%i' % self.actor.specToAlign
         enuKeys = self.actor.models[enuActor].keyVarDict
 
-        step = (upBound - lowBound) / (nbPosition - 1)
-
-        for i in range(nbPosition):
-            slitPos = [round(lowBound + i * step, 6)] + list(enuKeys['slit'])[1:]
-            posAbsolute = ' '.join(['%s=%s' % (name, value) for name, value in zip(align.posName, slitPos)])
+        for focus in positions:
+            posAbsolute = [focus] + list(enuKeys['slit'])[1:]
+            posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(align.posName, posAbsolute)])
 
             seq.addSubCmd(actor=enuActor,
                           cmdStr='slit move absolute %s' % posAbsolute)
@@ -43,13 +41,35 @@ class align(QThread):
                           timeLim=60 + exptime)
         return seq
 
-    def detalign(self, exptime, cam, startPosition, upBound, nbPosition, duplicate, waveRange):
-        seq = Sequence()
-        xcuActor = 'xcu_%s' % cam
-        step = (upBound - max(startPosition)) / (nbPosition - 1)
+    def slitTF(self, exptime, positions, cams, duplicate):
+        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        cams = 'cams=%s' % ','.join(cams) if cams else ''
+        enuActors = ['enu_sm%i' % specId for specId in specIds]
 
-        for i in range(nbPosition):
-            posA, posB, posC = startPosition + i * step
+        seq = CmdList()
+
+        for focus in positions:
+            for enuActor in enuActors:
+                enuKeys = self.actor.models[enuActor].keyVarDict
+                posAbsolute = [focus] + list(enuKeys['slit'])[1:]
+                posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(align.posName, posAbsolute)])
+                seq.addSubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute)
+
+            seq.addSubCmd(actor='sps',
+                          cmdStr='expose arc exptime=%.2f %s' % (exptime, cams),
+                          timeLim=120 + exptime,
+                          duplicate=duplicate)
+
+        return seq
+
+    def detalign(self, exptime, cam, lowBound, upBound, nbPosition, tilt, duplicate, waveRange):
+        seq = CmdList()
+        xcuActor = 'xcu_%s' % cam
+        upBound -= tilt.max()
+        positions = np.linspace(lowBound, upBound, nbPosition)
+
+        for position in positions:
+            posA, posB, posC = np.ones(3) * position + tilt
             seq.addSubCmd(actor=xcuActor,
                           cmdStr='motors moveCcd a=%i b=%i c=%i microns abs' % (posA, posB, posC))
             if not waveRange:
@@ -66,7 +86,7 @@ class align(QThread):
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         waves = np.linspace(waveStart, waveEnd, waveNb)
 
-        seq = Sequence()
+        seq = CmdList()
         for wave in waves:
             seq.addSubCmd(actor='dcb',
                           cmdStr='mono set wave=%.5f' % wave)
@@ -77,32 +97,11 @@ class align(QThread):
 
         return seq
 
-    def slitTF(self, exptime, nbPosition, lowBound, upBound, cams, duplicate):
-        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
-        cams = 'cams=%s' % ','.join(cams) if cams else ''
-        enuActors = ['enu_sm%i' % specId for specId in specIds]
-
-        step = (upBound - lowBound) / (nbPosition - 1)
-
-        seq = Sequence()
-
-        for i in range(nbPosition):
-            focus = round(lowBound + i * step, 6)
-            for enuActor in enuActors:
-                enuKeys = self.actor.models[enuActor].keyVarDict
-                posAbsolute = [focus] + list(enuKeys['slit'])[1:]
-                posAbsolute = ' '.join(['%s=%.5f' % (name, value) for name, value in zip(align.posName, posAbsolute)])
-                seq.addSubCmd(actor=enuActor, cmdStr='slit move absolute %s' % posAbsolute)
-
-            seq.addSubCmd(actor='sps',
-                          cmdStr='expose arc exptime=%.2f %s' % (exptime, cams),
-                          timeLim=120 + exptime,
-                          duplicate=duplicate)
-
-        return seq
-
     def start(self, cmd=None):
         QThread.start(self)
+
+    def stop(self, cmd=None):
+        self.exit()
 
     def handleTimeout(self):
         """| Is called when the thread is idle

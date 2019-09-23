@@ -1,7 +1,7 @@
 import logging
 
 from actorcore.QThread import QThread
-from spsaitActor.sequencing import Sequence
+from spsaitActor.utils.sequencing import CmdList
 
 
 class sac(QThread):
@@ -17,22 +17,20 @@ class sac(QThread):
 
     def expose(self, exptime, exptype, duplicate):
 
-        seq = Sequence()
+        seq = CmdList()
         seq.addSubCmd(actor='sac',
                       cmdStr='ccd %s exptime=%.2f' % (exptype, exptime),
                       duplicate=duplicate,
                       timeLim=60 + exptime)
         return seq
 
-    def sacalign(self, exptime, focus, lowBound, upBound, nbPosition, duplicate):
-        step = (upBound - lowBound) / (nbPosition - 1)
-
-        seq = Sequence()
+    def sacalign(self, exptime, positions, focus, duplicate):
+        seq = CmdList()
         seq.addSubCmd(actor='sac', cmdStr='move detector=%.2f abs' % focus)
 
-        for i in range(nbPosition):
+        for position in positions:
             seq.addSubCmd(actor='sac',
-                          cmdStr='move penta=%.2f abs' % (lowBound + i * step))
+                          cmdStr='move penta=%.2f abs' % position)
 
             seq.addSubCmd(actor='sac',
                           cmdStr='ccd expose exptime=%.2f' % exptime,
@@ -40,14 +38,12 @@ class sac(QThread):
                           timeLim=60 + exptime)
         return seq
 
-    def sacTF(self, exptime, lowBound, upBound, nbPosition, duplicate):
-        step = (upBound - lowBound) / (nbPosition - 1)
+    def sacTF(self, exptime, positions, duplicate):
+        seq = CmdList()
 
-        seq = Sequence()
-
-        for i in range(nbPosition):
+        for position in positions:
             seq.addSubCmd(actor='sac',
-                          cmdStr='move detector=%.2f abs' % (lowBound + i * step))
+                          cmdStr='move detector=%.2f abs' % position)
 
             seq.addSubCmd(actor='sac',
                           cmdStr='ccd expose exptime=%.2f' % exptime,
@@ -57,6 +53,9 @@ class sac(QThread):
 
     def start(self, cmd=None):
         QThread.start(self)
+
+    def stop(self, cmd=None):
+        self.exit()
 
     def handleTimeout(self):
         """| Is called when the thread is idle
