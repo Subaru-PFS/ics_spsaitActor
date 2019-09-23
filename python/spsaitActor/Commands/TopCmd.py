@@ -46,6 +46,7 @@ class TopCmd(object):
         """Report status and version; obtain and send current data"""
 
         self.actor.getStatus(cmd)
+        self.actor.sendVersionKey(cmd)
         cmd.finish()
 
     def abort(self, cmd):
