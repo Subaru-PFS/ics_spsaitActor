@@ -16,7 +16,7 @@ class dither(QThread):
         self.logger.setLevel(loglevel)
 
     def ditherflat(self, exptime, cams, shift, nbPosition, duplicate):
-        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams])) if cams else self.actor.specIds
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 
@@ -55,7 +55,7 @@ class dither(QThread):
         return seq
 
     def ditherpsf(self, exptime, cams, shift, duplicate):
-        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams]))
+        specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams])) if cams else self.actor.specIds
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 

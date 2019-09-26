@@ -14,13 +14,14 @@ class SpsaitActor(actorcore.ICC.ICC):
         # This sets up the connections to/from the hub, the logger, and the twisted reactor.
         #
         self.name = name
-        self.enus = ['enu_sm%i' % (i + 1) for i in range(4)]
-
         actorcore.ICC.ICC.__init__(self,
                                    name,
                                    productName=productName,
-                                   configFile=configFile,
-                                   modelNames=self.enus)
+                                   configFile=configFile)
+
+        self.specIds = [self.specToAlign]
+        self.enus = ['enu_sm%i' % specId for specId in self.specIds]
+        self.addModels(self.enus)
 
         self.everConnected = False
         self.current = None
