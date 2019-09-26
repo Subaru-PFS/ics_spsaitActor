@@ -17,7 +17,6 @@ class CustomCmd(object):
         # associated methods when matched. The callbacks will be
         # passed a single argument, the parsed and typed command.
         #
-        self.name = "test"
         self.vocab = [
             ('custom', '<sequence> [<name>] [<comments>]', self.customSequence),
         ]
@@ -28,6 +27,13 @@ class CustomCmd(object):
                                         keys.Key("comments", types.String(), help='operator comments'),
                                         keys.Key("sequence", types.String() * (1,), help='cmdStr list to process'),
                                         )
+
+    @property
+    def controller(self):
+        try:
+            return self.actor.controllers['expose']
+        except KeyError:
+            raise RuntimeError('expose controller is not connected.')
 
     @threaded
     def customSequence(self, cmd):
