@@ -2,6 +2,7 @@ import time
 from datetime import datetime as dt
 
 import numpy as np
+from spsaitActor.utils import cleanStr
 import spsaitActor.utils.storage as storage
 from spsaitActor.utils.logbook import Logbook
 
@@ -12,7 +13,7 @@ class Experiment(object):
     def __init__(self, actor, rawCmd, sequence, seqtype, name, comments, head, tail):
         object.__init__(self)
         self.actor = actor
-        self.cmdStr = 'spsait %s' % (rawCmd.replace('name="%s"' % name, '').replace('comments="%s"' % comments, ''))
+        self.cmdStr = 'spsait %s' % (rawCmd.replace("name='%s'" % name, '').replace("comments='%s'" % comments, ''))
         self.sequence = sequence
         self.seqtype = seqtype
         self.name = name

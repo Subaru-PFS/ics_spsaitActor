@@ -3,7 +3,9 @@
 import argparse
 import logging
 import time
+
 import actorcore.ICC
+from spsaitActor.utils import cleanStr
 from spsaitActor.utils.experiment import Experiment
 
 
@@ -34,8 +36,8 @@ class SpsaitActor(actorcore.ICC.ICC):
         head = [] if head is None else head
         tail = [] if tail is None else tail
 
-        self.current = Experiment(self, rawCmd=cmd.rawCmd, sequence=sequence, seqtype=seqtype,
-                                  name=name, comments=comments, head=head, tail=tail)
+        self.current = Experiment(self, rawCmd=cleanStr(cmd.rawCmd), sequence=sequence, seqtype=seqtype,
+                                  name=cleanStr(name), comments=cleanStr(comments), head=head, tail=tail)
 
         self.current.inform(cmd=cmd)
         self.current.registerCmds(cmd=cmd)
