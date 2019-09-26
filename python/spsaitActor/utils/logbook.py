@@ -76,3 +76,12 @@ class Logbook:
                                                                                     cleanStr(value),
                                                                                     experimentId)
         Logbook.newRow(dbname=dbname, sqlRequest=sqlRequest)
+
+    @staticmethod
+    def buildCmdStr(dbname, experimentId):
+        conn = sqlite3.connect('%s/%s.db' % (Logbook.path, dbname))
+        c = conn.cursor()
+        c.execute("""SELECT name, comments, cmdStr FROM Experiment WHERE experimentId=%i """ % experimentId)
+
+        return c.fetchone()
+
