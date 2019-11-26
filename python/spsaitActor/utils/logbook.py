@@ -4,7 +4,7 @@ from spsaitActor.utils import cleanStr
 
 
 class Logbook:
-    path = '///data/ait/'
+    path = '///software/ait/'
 
     @staticmethod
     def newExperiment(dbname, experimentId, name, visitStart, visitEnd, seqtype, cmdStr, comments, startdate, cmdError,
