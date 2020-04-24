@@ -60,8 +60,18 @@ class CmdList(list):
         cmdList = [] if cmdList is None else cmdList
 
         for cmd in cmdList:
-            actor, cmdStr = cmd.split(' ', 1)
-            self.addSubCmd(actor=actor, cmdStr=cmdStr)
+            actor, cmdStr, timeLim = self.split(cmd)
+            self.addSubCmd(actor=actor, cmdStr=cmdStr, timeLim=timeLim)
+
+    def split(self, cmd, timeLim=180):
+        actor, cmdStr = cmd.split(' ', 1)
+        args = cmdStr.split(' ')
+        for arg in args:
+            try:
+                __, timeLim = arg.split('time=')
+            except ValueError:
+                pass
+        return actor, cmdStr, int(timeLim) + 120
 
     def addSubCmd(self, actor, cmdStr, duplicate=1, timeLim=300, tempo=5.0):
         for i in range(duplicate):
