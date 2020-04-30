@@ -20,7 +20,7 @@ class DefocusCmd(object):
         self.name = "defocus"
         self.vocab = [
             ('defocus',
-             '<exptime> <attenuator> <position> [<duplicate>] [<switchOn>] [<switchOff>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
+             '<exptime> <position> [<attenuator>] [<duplicate>] [<switchOn>] [<switchOff>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.defocus)
         ]
 
@@ -57,8 +57,9 @@ class DefocusCmd(object):
         cmdKeys = cmd.cmd.keywords
 
         exptime = cmdKeys['exptime'].values[0]
-        attenuator = cmdKeys['attenuator'].values[0]
-        positions = np.linspace(*cmdKeys['position'].values)
+        attenuator = cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else None
+        start, stop, num = cmdKeys['position'].values
+        positions = np.linspace(start, stop, num=int(num))
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
 
         force = 'force' if 'force' in cmdKeys else ''
@@ -76,8 +77,9 @@ class DefocusCmd(object):
             raise Exception("exptime must be > 0")
 
         if switchOn:
+            atten = 'attenuator=%d' % attenuator if attenuator is not None else ''
             head += [SubCmd(actor='dcb',
-                            cmdStr="arc on=%s attenuator=%d %s" % (','.join(switchOn), attenuator, force),
+                            cmdStr="arc on=%s %s %s" % (','.join(switchOn), atten, force),
                             timeLim=300)]
 
         if switchOff:
