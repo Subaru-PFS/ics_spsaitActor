@@ -54,15 +54,17 @@ class dither(QThread):
 
         return seq
 
-    def ditherpsf(self, exptime, cams, shift, duplicate):
+    def ditherpsf(self, exptime, cams, shift, doMinus, duplicate):
         specIds = list(OrderedDict.fromkeys([int(cam[1]) for cam in cams])) if cams else self.actor.specIds
         cams = 'cams=%s' % ','.join(cams) if cams else ''
         enuActors = ['enu_sm%i' % specId for specId in specIds]
 
         seq = CmdList()
+        end = int(1 / shift)
+        start = -end + 1 if doMinus else 0
 
-        for yn in range(int(1 / shift)):
-            for zn in range(int(1 / shift)):
+        for yn in range(start, end):
+            for zn in range(start, end):
 
                 for enuActor in enuActors:
                     seq.addSubCmd(actor=enuActor, cmdStr='slit home')

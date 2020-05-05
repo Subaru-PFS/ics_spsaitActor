@@ -22,7 +22,7 @@ class DitherCmd(object):
              'flat <exptime> <pixels> <nbPosition> [<duplicate>] [switchOff] [<attenuator>] [force] [<cam>] [<name>] [<comments>] [<head>] [<tail>]',
              self.ditherFlat),
             ('dither',
-             'psf <exptime> <pixels> [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<head>] [<tail>] [<comments>]',
+             'psf <exptime> <pixels> [doMinus] [<duplicate>] [<switchOn>] [<switchOff>] [<attenuator>] [force] [<cam>] [<name>] [<head>] [<tail>] [<comments>]',
              self.ditherPsf)
 
         ]
@@ -104,6 +104,7 @@ class DitherCmd(object):
         exptime = cmdKeys['exptime'].values[0]
         shift = cmdKeys['pixels'].values[0]
         duplicate = cmdKeys['duplicate'].values[0] if "duplicate" in cmdKeys else 1
+        doMinus = 'doMinus' in cmdKeys
 
         attenuator = 'attenuator=%i' % cmdKeys['attenuator'].values[0] if 'attenuator' in cmdKeys else ''
         force = 'force' if 'force' in cmdKeys else ''
@@ -132,6 +133,7 @@ class DitherCmd(object):
         sequence = self.controller.ditherpsf(exptime=exptime,
                                              cams=cams,
                                              shift=shift,
+                                             doMinus=doMinus,
                                              duplicate=duplicate)
 
         self.actor.processSequence(cmd, sequence,
