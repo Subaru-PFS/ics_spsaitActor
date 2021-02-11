@@ -35,7 +35,7 @@ class AlignCmd(object):
         # Define typed command arguments for the above commands.
         self.keys = keys.KeysDictionary('spsait_align', (1, 1),
                                         keys.Key('exptime', types.Float(), help='The exposure time'),
-                                        keys.Key('position', types.Float() * (1, 3),
+                                        keys.Key('position', types.Float(), types.Float(), types.Int(),
                                                  help='slit/motor position for throughfocus same args as np.linspace'),
                                         keys.Key('duplicate', types.Int(),
                                                  help='exposure duplicate per position (1 is default)'),
